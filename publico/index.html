@@ -3,59 +3,115 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>App de tareas</title>
+  <title>Tablero de tareas</title>
   <!-- Sin favicon propio: este href vacio evita que el navegador pida
        /favicon.ico y ensucie el registro del servidor con un 404. -->
   <link rel="icon" href="data:,">
-  <style>
-    body {
-      font-family: system-ui, sans-serif;
-      max-width: 40rem;
-      margin: 3rem auto;
-      padding: 0 1rem;
-      line-height: 1.6;
-    }
-    code {
-      background: #eeeeee;
-      padding: 0.1rem 0.3rem;
-      border-radius: 3px;
-    }
-    #salud {
-      font-family: ui-monospace, Consolas, monospace;
-      padding: 0.75rem;
-      border-radius: 6px;
-      background: #f2f2f2;
-    }
-    .ok { color: #0a6b2d; }
-    .error { color: #a11111; }
-  </style>
+
+  <!-- El CSS, en cinco modulos. Se enlazan por separado y no con @import
+       porque asi el navegador los pide en paralelo, y porque el orden en que
+       se cargan se LEE en el HTML en lugar de estar escondido en un archivo.
+
+       El orden de prioridad NO lo decide este orden: lo decide la declaracion
+       de @layer que esta al principio de tokens.css. Por eso los modulos se
+       pueden reordenar aca sin cambiar el resultado. -->
+  <link rel="stylesheet" href="/estilos/tokens.css">
+  <link rel="stylesheet" href="/estilos/base.css">
+  <link rel="stylesheet" href="/estilos/layout.css">
+  <link rel="stylesheet" href="/estilos/componentes.css">
+  <link rel="stylesheet" href="/estilos/utilidades.css">
 </head>
 <body>
-  <h1>App de tareas</h1>
-  <p>Etapa 1: el servidor responde. Todavia no hay tablero.</p>
-  <p>
-    Esta pagina la sirve <code>src/servidor.mjs</code> desde
-    <code>publico/index.html</code>.
-  </p>
+  <div class="app">
+    <header class="cabecera">
+      <div class="marca">
+        <h1>Tablero</h1>
+        <p id="resumen" class="resumen">Cargando…</p>
+      </div>
+      <button id="refrescar" type="button" class="boton-sutil">Volver a leer del servidor</button>
+    </header>
 
-  <h2>Salud del servidor · /api/salud</h2>
-  <p id="salud">Consultando <code>/api/salud</code>...</p>
+    <!-- El formulario de captura: lo mas rapido posible. Enter y listo.
+         Los demas campos se completan despues, editando la tarjeta. -->
+    <form id="formulario-nueva" class="captura" autocomplete="off">
+      <input id="titulo-nueva" name="titulo" type="text" placeholder="¿Qué hay que hacer?" required>
+      <input id="vence-nueva" name="venceEl" type="date" title="Fecha límite (opcional)">
+      <button type="submit" class="boton-principal">Agregar</button>
+    </form>
+
+    <p id="aviso" class="aviso" hidden></p>
+
+    <main id="tablero" class="tablero" aria-label="Tablero de tareas"></main>
+
+    <footer class="pie">
+      <span>Los datos son la fuente de verdad. Arrastrá una tarjeta, o usá las flechas.</span>
+    </footer>
+  </div>
+
+  <!-- dialog nativo: se abre con showModal(), se cierra con close(), y el
+       navegador se encarga del fondo, del foco y de la tecla Escape. -->
+  <dialog id="dialogo-editar" class="dialogo">
+    <form id="formulario-editar">
+      <h2>Editar tarea <span id="editar-id" class="identificador"></span></h2>
+
+      <label>Título
+        <input name="titulo" type="text" required>
+      </label>
+
+      <label>Detalle
+        <textarea name="detalle" rows="3"></textarea>
+      </label>
+
+      <div class="en-linea">
+        <label>Vence
+          <input name="venceEl" type="date">
+        </label>
+        <label>Estimación (min)
+          <input name="estimacionMin" type="number" min="1" step="1">
+        </label>
+      </div>
+
+      <div class="en-linea">
+        <label>Balde
+          <select name="balde">
+            <option value="">Sin balde</option>
+            <option value="A">A · horario ajeno</option>
+            <option value="B">B · bloque de foco</option>
+            <option value="C">C · otro agente</option>
+          </select>
+        </label>
+        <label>Dimensión
+          <select name="dimension">
+            <option value="">Sin dimensión</option>
+            <option value="rendimiento">rendimiento</option>
+            <option value="docente">docente</option>
+            <option value="desarrollo">desarrollo</option>
+            <option value="salud">salud</option>
+            <option value="it-remoto">it-remoto</option>
+            <option value="finanzas">finanzas</option>
+            <option value="gabinete">gabinete</option>
+          </select>
+        </label>
+      </div>
+
+      <label>Etiquetas <span class="ayuda">(separadas por coma)</span>
+        <input name="etiquetas" type="text" placeholder="proyecto, casa">
+      </label>
+
+      <label class="casilla">
+        <input name="impostergable" type="checkbox">
+        Impostergable
+      </label>
+
+      <div class="acciones-dialogo">
+        <button type="button" id="cancelar-edicion" class="boton-sutil">Cancelar</button>
+        <button type="submit" class="boton-principal">Guardar</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- type="module" permite usar await en el nivel de arriba del script, sin
        envolver todo en una funcion. Es el mismo tipo de modulo que usa Node. -->
-  <script type="module">
-    const destino = document.querySelector('#salud');
-
-    try {
-      const respuesta = await fetch('/api/salud');
-      const datos = await respuesta.json();
-      destino.textContent = `${respuesta.status} ${JSON.stringify(datos)}`;
-      destino.className = respuesta.ok ? 'ok' : 'error';
-    } catch (error) {
-      // Si el servidor no contesta, fetch rechaza la promesa y caemos aca.
-      destino.textContent = `No se pudo consultar: ${error.message}`;
-      destino.className = 'error';
-    }
-  </script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

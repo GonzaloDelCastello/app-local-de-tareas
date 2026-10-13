@@ -1,0 +1,129 @@
+/* ---------------------------------------------------------------------------
+   TOKENS — el unico lugar donde viven los valores del sistema de diseno.
+   ---------------------------------------------------------------------------
+
+   Regla del modulo: aca NO hay selectores de elementos ni de clases. Solo
+   variables. Si un color aparece dos veces en el proyecto, esta mal: tiene que
+   estar aca una sola vez y usarse por nombre.
+
+   Los nombres siguen una convencion, no son ocurrencias:
+     --e-N    espacio, escala de 4px
+     --t-*    tamano de texto
+     --r-*    radio de borde
+     --sombra-N
+   --------------------------------------------------------------------------- */
+
+/* El orden de las capas se declara UNA vez, y desde aca manda.
+
+   Una capa (cascade layer) agrupa reglas y les da prioridad POR GRUPO: lo que
+   esta en `utilidades` le gana a lo que esta en `componentes`, sin importar
+   cuantas clases tenga el selector ni en que orden se cargaron los archivos.
+
+   Sin capas, para pisar un estilo hay que pelear con especificidad (mas clases,
+   !important, orden de carga), y eso es lo que vuelve insostenible un CSS
+   grande. Con capas, se elige en que nivel vive cada regla y listo. */
+@layer tokens, base, layout, componentes, utilidades;
+
+@layer tokens {
+  :root {
+    /* --- tipografia --- */
+    --fuente: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --fuente-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+
+    --t-xs: 0.6875rem;
+    --t-sm: 0.8125rem;
+    --t-base: 0.9375rem;
+    --t-lg: 1.0625rem;
+    --t-xl: 1.375rem;
+
+    --peso-normal: 400;
+    --peso-medio: 500;
+    --peso-fuerte: 640;
+
+    --interlineado: 1.55;
+    --interlineado-titulo: 1.25;
+
+    /* --- espacio: escala de 4px --- */
+    --e-1: 0.25rem;
+    --e-2: 0.5rem;
+    --e-3: 0.75rem;
+    --e-4: 1rem;
+    --e-5: 1.5rem;
+    --e-6: 2rem;
+    --e-7: 3rem;
+
+    /* --- radios --- */
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-full: 999px;
+
+    /* --- colores (modo claro) --- */
+    --fondo: #f7f8fa;
+    --superficie: #ffffff;
+    --superficie-2: #eff1f5;
+    --borde: #e5e8ee;
+    --borde-fuerte: #d3d8e0;
+    --texto: #15171c;
+    --texto-2: #5b6270;
+    --texto-3: #8b92a0;
+
+    --acento: #3d5afe;
+    --acento-fuerte: #2f49d1;
+    --acento-suave: #eef1ff;
+    --acento-texto: #ffffff;
+
+    --alerta: #c2372a;
+    --alerta-suave: #fdf2f0;
+
+    --exito: #1c7a45;
+    --exito-suave: #eefaf2;
+
+    --ambar: #b26a00;
+
+    /* --- sombras: suaves, casi imperceptibles. Es lo que hace que se vea
+           limpio en lugar de cargado --- */
+    --sombra-1: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+    --sombra-2: 0 6px 16px rgb(16 24 40 / 0.10);
+    --sombra-3: 0 16px 40px rgb(16 24 40 / 0.18);
+
+    /* --- movimiento --- */
+    --transicion: 140ms cubic-bezier(0.2, 0, 0.2, 1);
+
+    /* --- medidas --- */
+    --ancho-maximo: 1440px;
+    --ancho-dialogo: 34rem;
+  }
+
+  /* Modo oscuro: se activa solo, segun lo que tenga configurado el sistema.
+     No hay boton ni preferencia guardada: menos estado que mantener. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #0d0f13;
+      --superficie: #16191f;
+      --superficie-2: #1d2129;
+      --borde: #262b34;
+      --borde-fuerte: #333a45;
+      --texto: #e8eaee;
+      --texto-2: #9aa2b1;
+      --texto-3: #6d7686;
+
+      --acento: #7c8cff;
+      --acento-fuerte: #93a0ff;
+      --acento-suave: #1b2136;
+      --acento-texto: #0d0f13;
+
+      --alerta: #ff8d80;
+      --alerta-suave: #2a1a19;
+
+      --exito: #6ee7a4;
+      --exito-suave: #122318;
+
+      --ambar: #e0a44a;
+
+      --sombra-1: 0 1px 2px rgb(0 0 0 / 0.3);
+      --sombra-2: 0 6px 16px rgb(0 0 0 / 0.45);
+      --sombra-3: 0 16px 40px rgb(0 0 0 / 0.6);
+    }
+  }
+}

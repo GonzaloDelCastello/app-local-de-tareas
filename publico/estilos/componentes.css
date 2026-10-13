@@ -1,0 +1,350 @@
+/* ---------------------------------------------------------------------------
+   COMPONENTES — como se ve cada pieza. Es el modulo mas grande, y es normal.
+   ---------------------------------------------------------------------------
+
+   Cada bloque empieza con un comentario que dice QUE ES, no como se ve. Si el
+   bloque necesita explicar tres propiedades seguidas, probablemente sea dos
+   componentes distintos.
+   --------------------------------------------------------------------------- */
+
+@layer componentes {
+  /* ===== Controles de formulario ========================================= */
+
+  input[type="text"],
+  input[type="date"],
+  input[type="number"],
+  select,
+  textarea {
+    padding: var(--e-2) var(--e-3);
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: var(--r-md);
+    transition: border-color var(--transicion), box-shadow var(--transicion);
+  }
+
+  input[type="text"]:hover,
+  input[type="date"]:hover,
+  input[type="number"]:hover,
+  select:hover,
+  textarea:hover {
+    border-color: var(--borde-fuerte);
+  }
+
+  textarea {
+    resize: vertical;
+    font-family: inherit;
+  }
+
+  /* ===== Botones ========================================================= */
+
+  button {
+    padding: var(--e-2) var(--e-3);
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: var(--r-md);
+    font-weight: var(--peso-medio);
+    transition: background-color var(--transicion), border-color var(--transicion),
+      transform var(--transicion);
+  }
+
+  button:hover:not(:disabled) {
+    background: var(--superficie-2);
+    border-color: var(--borde-fuerte);
+  }
+
+  button:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  /* El boton que hace la accion principal de la pantalla: crear. */
+  .boton-principal {
+    padding-inline: var(--e-4);
+    background: var(--acento);
+    border-color: var(--acento);
+    color: var(--acento-texto);
+    font-weight: var(--peso-fuerte);
+  }
+
+  .boton-principal:hover:not(:disabled) {
+    background: var(--acento-fuerte);
+    border-color: var(--acento-fuerte);
+  }
+
+  /* El que no deberia llamar la atencion. */
+  .boton-sutil {
+    padding-inline: var(--e-2);
+    background: none;
+    border-color: transparent;
+    color: var(--texto-2);
+    font-weight: var(--peso-normal);
+  }
+
+  .boton-sutil:hover:not(:disabled) {
+    background: var(--superficie-2);
+    border-color: transparent;
+    color: var(--texto);
+  }
+
+  /* ===== Columna del tablero ============================================= */
+
+  /* Feedback de arrastre: la columna se ilumina cuando la tarjeta esta encima.
+     Sin esto, no hay forma de saber donde va a caer. */
+  .columna.encima {
+    background: var(--acento-suave);
+    border-color: var(--acento);
+    border-style: dashed;
+  }
+
+  /* El punto de color dice de que columna se trata de un vistazo, sin leer.
+     El color NO carga significado por si solo: el nombre esta al lado. */
+  .columna h2::before {
+    content: "";
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--r-full);
+    background: var(--texto-3);
+  }
+
+  .columna[data-estado="en-curso"] h2::before {
+    background: var(--ambar);
+  }
+
+  .columna[data-estado="hecha"] h2::before {
+    background: var(--exito);
+  }
+
+  .columna[data-estado="descartada"] h2::before {
+    background: var(--borde-fuerte);
+  }
+
+  .contador {
+    margin-left: auto;
+    min-width: 1.5rem;
+    padding: 0 var(--e-2);
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: var(--r-full);
+    color: var(--texto-2);
+    font-size: var(--t-xs);
+    font-weight: var(--peso-medio);
+    text-align: center;
+  }
+
+  .vacia {
+    padding: var(--e-3);
+    border: 1px dashed var(--borde);
+    border-radius: var(--r-md);
+    color: var(--texto-3);
+    font-size: var(--t-sm);
+    text-align: center;
+  }
+
+  /* ===== Tarjeta ========================================================= */
+
+  .tarjeta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--e-2);
+    padding: var(--e-3);
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: var(--r-md);
+    box-shadow: var(--sombra-1);
+    cursor: grab;
+    transition: box-shadow var(--transicion), border-color var(--transicion),
+      transform var(--transicion), opacity var(--transicion);
+  }
+
+  .tarjeta:hover {
+    border-color: var(--borde-fuerte);
+    box-shadow: var(--sombra-2);
+  }
+
+  .tarjeta:active {
+    cursor: grabbing;
+  }
+
+  .tarjeta.arrastrando {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+
+  /* Impostergable: una barra. Es la unica marca de color fuerte del tablero, y
+     por eso se ve. */
+  .tarjeta.impostergable {
+    border-left: 3px solid var(--alerta);
+  }
+
+  .tarjeta.cerrada {
+    background: var(--superficie-2);
+    box-shadow: none;
+  }
+
+  .tarjeta.cerrada .titulo {
+    color: var(--texto-3);
+    text-decoration: line-through;
+  }
+
+  .titulo {
+    font-weight: var(--peso-medio);
+    line-height: var(--interlineado-titulo);
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--e-2);
+    color: var(--texto-3);
+    font-size: var(--t-xs);
+  }
+
+  .identificador {
+    font-family: var(--fuente-mono);
+    letter-spacing: -0.02em;
+  }
+
+  .etiqueta {
+    padding: 0 var(--e-2);
+    background: var(--superficie-2);
+    border-radius: var(--r-sm);
+    color: var(--texto-2);
+  }
+
+  .vence.vencida {
+    color: var(--alerta);
+    font-weight: var(--peso-fuerte);
+  }
+
+  .fuerte {
+    color: var(--alerta);
+    font-weight: var(--peso-fuerte);
+  }
+
+  /* Las acciones de la tarjeta: discretas pero SIEMPRE visibles. Ocultarlas
+     hasta el hover se ve prolijo y es una trampa: quien navega con el teclado
+     no las encuentra. */
+  .botones {
+    display: flex;
+    gap: var(--e-1);
+    margin-top: var(--e-1);
+  }
+
+  .botones button {
+    padding: var(--e-1) var(--e-2);
+    background: none;
+    border-color: transparent;
+    color: var(--texto-3);
+    font-size: var(--t-sm);
+    line-height: 1.2;
+  }
+
+  .botones button:hover:not(:disabled) {
+    background: var(--superficie-2);
+    border-color: transparent;
+    color: var(--texto);
+  }
+
+  .tarjeta:hover .botones button {
+    color: var(--texto-2);
+  }
+
+  /* ===== Aviso de error ================================================== */
+
+  .aviso {
+    display: flex;
+    gap: var(--e-2);
+    padding: var(--e-3) var(--e-4);
+    background: var(--alerta-suave);
+    border: 1px solid var(--alerta);
+    border-radius: var(--r-md);
+    color: var(--alerta);
+    font-size: var(--t-sm);
+  }
+
+  /* `display: flex` pisa el display:none que el navegador le da a [hidden].
+     Sin esta linea, un aviso "oculto" se veria igual. Es un error clasico. */
+  .aviso[hidden] {
+    display: none;
+  }
+
+  /* ===== Dialogo de edicion ============================================== */
+
+  .dialogo {
+    width: min(var(--ancho-dialogo), 92vw);
+    padding: 0;
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: var(--r-lg);
+    box-shadow: var(--sombra-3);
+    color: var(--texto);
+  }
+
+  .dialogo::backdrop {
+    background: rgb(10 12 16 / 0.5);
+  }
+
+  .dialogo form {
+    display: grid;
+    gap: var(--e-4);
+    padding: var(--e-5);
+  }
+
+  .dialogo h2 {
+    display: flex;
+    align-items: baseline;
+    gap: var(--e-2);
+    font-size: var(--t-lg);
+    letter-spacing: -0.01em;
+  }
+
+  .dialogo label {
+    display: grid;
+    gap: var(--e-1);
+    color: var(--texto-2);
+    font-size: var(--t-sm);
+  }
+
+  .dialogo input,
+  .dialogo select,
+  .dialogo textarea {
+    color: var(--texto);
+  }
+
+  .en-linea {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--e-3);
+  }
+
+  .casilla {
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: center;
+    gap: var(--e-2);
+    color: var(--texto);
+  }
+
+  .casilla input {
+    width: auto;
+    accent-color: var(--acento);
+  }
+
+  .ayuda {
+    color: var(--texto-3);
+  }
+
+  .acciones-dialogo {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--e-2);
+    margin: 0;
+    padding: 0;
+  }
+}

@@ -1,0 +1,217 @@
+// Ejecuta publico/app.js FUERA del navegador: con un DOM de mentira, pero
+// contra el servidor de verdad.
+//
+// POR QUE EXISTE
+//
+// El JavaScript de la interfaz no tiene pruebas, y "abrir el navegador y ver"
+// no es una verificacion que se pueda repetir ni que quede registrada. Esto no
+// reemplaza al navegador: reemplaza al "deberia andar". Prueba que el modulo
+// carga, que habla con la API, que dibuja las cuatro columnas y que mete las
+// tareas adentro.
+//
+// Se corre con el servidor levantado:
+//   node herramientas/probar-interfaz.mjs
+//   $env:BASE="http://127.0.0.1:3000"; node herramientas/probar-interfaz.mjs
+
+const BASE = process.env.BASE ?? "http://127.0.0.1:3000";
+
+let fallos = 0;
+function afirmar(condicion, descripcion) {
+  if (condicion) {
+    console.log(`  ok   ${descripcion}`);
+  } else {
+    console.log(`  FALLA ${descripcion}`);
+    fallos = fallos + 1;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Un DOM de mentira, con lo justo que usa app.js
+// ---------------------------------------------------------------------------
+
+class ElementoFalso {
+  constructor(etiqueta) {
+    this.etiqueta = etiqueta;
+    this.hijos = [];
+    this.texto = "";
+    this.clase = "";
+    this.atributos = new Map();
+    this.escuchas = new Map();
+    this.dataset = {};
+    this.estilo = {};
+    this.value = "";
+    this.checked = false;
+    this.disabled = false;
+    this.hidden = false;
+    this.draggable = false;
+    this.title = "";
+    const self = this;
+    this.classList = {
+      add: (c) => { if (!self.clase.split(" ").includes(c)) self.clase = `${self.clase} ${c}`.trim(); },
+      remove: (c) => { self.clase = self.clase.split(" ").filter((x) => x !== c).join(" "); },
+      contains: (c) => self.clase.split(" ").includes(c),
+    };
+  }
+
+  get className() { return this.clase; }
+  set className(valor) { this.clase = valor; }
+
+  get textContent() {
+    if (this.hijos.length === 0) return this.texto;
+    return this.hijos.map((h) => h.textContent).join("");
+  }
+  set textContent(valor) { this.texto = String(valor); this.hijos = []; }
+
+  append(...nodos) { for (const n of nodos) this.hijos.push(n); }
+  appendChild(nodo) { this.hijos.push(nodo); return nodo; }
+  replaceChildren(...nodos) { this.hijos = nodos; }
+  remove() {}
+  addEventListener(tipo, fn) {
+    if (!this.escuchas.has(tipo)) this.escuchas.set(tipo, []);
+    this.escuchas.get(tipo).push(fn);
+  }
+  async disparar(tipo, evento = {}) {
+    for (const fn of this.escuchas.get(tipo) ?? []) await fn({ preventDefault() {}, ...evento });
+  }
+  reset() {
+    for (const hijo of this.hijos) hijo.value = "";
+  }
+  showModal() { this.abierto = true; }
+  close() { this.abierto = false; }
+
+  /** Todos los descendientes, para poder buscar por clase. */
+  descendientes() {
+    const todos = [];
+    for (const hijo of this.hijos) {
+      todos.push(hijo);
+      if (typeof hijo.descendientes === "function") todos.push(...hijo.descendientes());
+    }
+    return todos;
+  }
+
+  porClase(clase) { return this.descendientes().filter((e) => e.clase.split(" ").includes(clase)); }
+}
+
+/** Los campos que app.js espera encontrar en cada formulario. */
+function formularioConCampos(etiqueta, nombres) {
+  const formulario = new ElementoFalso(etiqueta);
+  for (const nombre of nombres) formulario[nombre] = new ElementoFalso("input");
+  // reset() de verdad: en un navegador lo hace el propio formulario. Aca hay
+  // que limpiar los campos a mano, porque no son hijos del elemento.
+  formulario.reset = () => {
+    for (const nombre of nombres) {
+      formulario[nombre].value = "";
+      formulario[nombre].checked = false;
+    }
+  };
+  return formulario;
+}
+
+const porId = new Map();
+porId.set("#tablero", new ElementoFalso("main"));
+porId.set("#resumen", new ElementoFalso("p"));
+porId.set("#aviso", new ElementoFalso("p"));
+porId.set("#editar-id", new ElementoFalso("span"));
+porId.set("#cancelar-edicion", new ElementoFalso("button"));
+porId.set("#refrescar", new ElementoFalso("button"));
+porId.set("#dialogo-editar", new ElementoFalso("dialog"));
+porId.set(
+  "#formulario-nueva",
+  formularioConCampos("form", ["titulo", "venceEl"]),
+);
+porId.set(
+  "#formulario-editar",
+  formularioConCampos("form", [
+    "titulo", "detalle", "venceEl", "estimacionMin", "balde", "dimension", "etiquetas", "impostergable",
+  ]),
+);
+
+globalThis.document = {
+  querySelector: (selector) => {
+    if (!porId.has(selector)) porId.set(selector, new ElementoFalso("div"));
+    return porId.get(selector);
+  },
+  createElement: (etiqueta) => new ElementoFalso(etiqueta),
+};
+globalThis.confirm = () => true;
+
+// fetch relativo -> absoluto contra el servidor de verdad
+const fetchReal = globalThis.fetch;
+globalThis.fetch = (ruta, opciones) => fetchReal(new URL(ruta, BASE), opciones);
+
+// ---------------------------------------------------------------------------
+// La prueba
+// ---------------------------------------------------------------------------
+
+console.log(`Servidor: ${BASE}`);
+console.log("Cargando publico/app.js con el DOM de mentira...\n");
+
+await import("../publico/app.js");
+await new Promise((seguir) => setTimeout(seguir, 400));
+
+const tablero = porId.get("#tablero");
+const columnas = tablero.hijos;
+
+afirmar(columnas.length === 4, `se dibujaron 4 columnas (son ${columnas.length})`);
+afirmar(tablero.porClase("columna").length === 4, "las 4 tienen la clase columna");
+
+const resumen = porId.get("#resumen").textContent;
+afirmar(/en total/.test(resumen), `el resumen se completo: "${resumen}"`);
+
+// Crear una tarea por el mismo camino que usa el boton.
+const formularioNueva = porId.get("#formulario-nueva");
+const titulo = `Tarea de prueba ${Date.now()}`;
+formularioNueva.titulo.value = titulo;
+await formularioNueva.disparar("submit");
+
+const tarjetas = tablero.porClase("tarjeta");
+afirmar(
+  tarjetas.some((t) => t.textContent.includes(titulo)),
+  `la tarea creada aparece en el tablero ("${titulo}")`,
+);
+afirmar(formularioNueva.titulo.value === "", "el formulario se limpio despues de crear");
+
+// Moverla: buscar el boton "->" de esa tarjeta y apretarlo.
+const tarjeta = tarjetas.find((t) => t.textContent.includes(titulo));
+const botones = tarjeta.porClase("botones")[0].hijos;
+afirmar(botones.length === 4, `la tarjeta tiene 4 botones (tiene ${botones.length})`);
+
+// OJO: hay que releer tablero.hijos en cada medicion. dibujar() llama a
+// replaceChildren(), que REEMPLAZA el array de hijos: una referencia guardada
+// antes apunta al array viejo y miente. (Esto fue un falso positivo la primera
+// vez que se corrio.)
+function indiceDe(texto) {
+  return porId
+    .get("#tablero")
+    .hijos.findIndex((c) => c.porClase("tarjeta").some((t) => t.textContent.includes(texto)));
+}
+
+const indiceAntes = indiceDe(titulo);
+await botones[1].disparar("click");
+await new Promise((seguir) => setTimeout(seguir, 150));
+const indiceDespues = indiceDe(titulo);
+afirmar(
+  indiceDespues === indiceAntes + 1,
+  `la flecha -> la movio de columna (${indiceAntes} -> ${indiceDespues})`,
+);
+
+// Borrarla, para no dejar basura.
+const tarjetaDespues = tablero.porClase("tarjeta").find((t) => t.textContent.includes(titulo));
+await tarjetaDespues.porClase("botones")[0].hijos[3].disparar("click");
+await new Promise((seguir) => setTimeout(seguir, 200));
+afirmar(
+  !tablero.porClase("tarjeta").some((t) => t.textContent.includes(titulo)),
+  "el boton de borrar la saco del tablero",
+);
+
+// El aviso de error tiene que quedar limpio si todo salio bien.
+afirmar(porId.get("#aviso").hidden === true, "no quedo ningun aviso de error visible");
+
+console.log("");
+if (fallos === 0) {
+  console.log("Todo bien.");
+  process.exitCode = 0;
+} else {
+  console.log(`${fallos} comprobaciones fallaron.`);
+  process.exitCode = 1;
+}

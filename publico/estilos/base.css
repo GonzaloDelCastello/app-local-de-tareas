@@ -1,0 +1,78 @@
+/* ---------------------------------------------------------------------------
+   BASE — el punto de partida: normalizacion y elementos sin clase.
+   ---------------------------------------------------------------------------
+
+   Va despues de tokens y antes que todo lo demas. Aca no hay nada que se pueda
+   llamar "diseno de un componente": son las reglas que hacen que el navegador
+   se comporte igual en todos lados, y los defaults del texto.
+   --------------------------------------------------------------------------- */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  * {
+    margin: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    tab-size: 2;
+  }
+
+  body {
+    min-height: 100dvh;
+    padding: var(--e-5);
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: var(--fuente);
+    font-size: var(--t-base);
+    line-height: var(--interlineado);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-weight: var(--peso-fuerte);
+    line-height: var(--interlineado-titulo);
+  }
+
+  /* Los controles de formulario NO heredan la tipografia del body: hay que
+     decirlo. Sin esta linea, un boton se ve con la fuente del sistema y
+     desentona con el resto de la pagina. */
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  /* El foco tiene que verse SIEMPRE, y verse bien. :focus-visible y no :focus
+     para que no aparezca el recuadro al hacer clic con el mouse, solo al
+     navegar con el teclado. */
+  :focus-visible {
+    outline: 2px solid var(--acento);
+    outline-offset: 2px;
+    border-radius: var(--r-sm);
+  }
+
+  /* Quien pidio menos movimiento en su sistema, no recibe animaciones. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

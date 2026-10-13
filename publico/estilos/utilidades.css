@@ -1,0 +1,30 @@
+/* ---------------------------------------------------------------------------
+   UTILIDADES — clases de un solo proposito, para casos sueltos.
+   ---------------------------------------------------------------------------
+
+   Es la ultima capa, asi que le gana a todas las anteriores. Eso es a proposito
+   y tambien es el motivo por el que este archivo tiene que quedar CHICO: una
+   utilidad que se usa en diez lugares no es una utilidad, es un componente mal
+   ubicado.
+   --------------------------------------------------------------------------- */
+
+@layer utilidades {
+  /* Para texto que tiene que existir para quien usa un lector de pantalla, pero
+     no verse. No sirve `display: none`: eso lo esconde tambien del lector. */
+  .visualmente-oculto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* El unico !important justificado del proyecto: una utilidad tiene que ganar
+     siempre, y en la capa de utilidades el !important es la forma de decirlo. */
+  .oculto {
+    display: none !important;
+  }
+}

@@ -1,0 +1,109 @@
+/* ---------------------------------------------------------------------------
+   LAYOUT — donde va cada cosa. Estructura, no apariencia.
+   ---------------------------------------------------------------------------
+
+   Regla del modulo: si una regla responde a "como se acomoda", va aca. Si
+   responde a "como se ve", va en componentes.css.
+   --------------------------------------------------------------------------- */
+
+@layer layout {
+  .app {
+    max-width: var(--ancho-maximo);
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--e-4);
+  }
+
+  /* --- cabecera --- */
+  .cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--e-3);
+    padding-block: var(--e-2);
+  }
+
+  .marca {
+    display: flex;
+    align-items: baseline;
+    gap: var(--e-3);
+    flex-wrap: wrap;
+  }
+
+  .cabecera h1 {
+    font-size: var(--t-xl);
+    letter-spacing: -0.02em;
+  }
+
+  .resumen {
+    color: var(--texto-2);
+    font-size: var(--t-sm);
+  }
+
+  /* --- captura --- */
+  .captura {
+    display: flex;
+    gap: var(--e-2);
+    flex-wrap: wrap;
+  }
+
+  .captura input[type="text"] {
+    flex: 1 1 18rem;
+  }
+
+  /* --- tablero --- */
+  .tablero {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--e-4);
+    align-items: start;
+  }
+
+  @media (max-width: 1000px) {
+    .tablero {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 600px) {
+    .tablero {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .columna {
+    display: flex;
+    flex-direction: column;
+    gap: var(--e-2);
+    min-height: 8rem;
+    padding: var(--e-2);
+    border: 1px solid transparent;
+    border-radius: var(--r-lg);
+    transition: background-color var(--transicion), border-color var(--transicion);
+  }
+
+  .columna h2 {
+    display: flex;
+    align-items: center;
+    gap: var(--e-2);
+    padding-inline: var(--e-1);
+    font-size: var(--t-xs);
+    font-weight: var(--peso-fuerte);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--texto-2);
+  }
+
+  .pie {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--e-3);
+    flex-wrap: wrap;
+    padding-top: var(--e-2);
+    color: var(--texto-3);
+    font-size: var(--t-sm);
+  }
+}
