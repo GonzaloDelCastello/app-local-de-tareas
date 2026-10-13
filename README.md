@@ -7,7 +7,7 @@ Tablero de tareas tipo **Kanban** (la "vista de tablero" de Notion) que corre **
 - Incluye un **contador pomodoro**, y el registro de pomodoros es un dato más que la app publica para el agente `rendimiento` (ver C12 en [DECISIONES.md](docs/DECISIONES.md)).
 - El objetivo del proyecto es **aprender**: cada pieza se decide, se escribe y se verifica en conjunto.
 
-**Estado: diseño.** Todavía no hay código. Primero se cierran las decisiones de [DECISIONES.md](docs/DECISIONES.md).
+**Estado: la Etapa 1 corre y está verificada.** El resto sigue en diseño. Las decisiones se toman en [DECISIONES.md](docs/DECISIONES.md), y la Etapa 1 todavía no está *recorrida* por Gonzalo: el código lo escribió el agente y el ejercicio de ruptura queda pendiente (ver C14).
 
 ## Documentos
 
@@ -19,7 +19,29 @@ Tablero de tareas tipo **Kanban** (la "vista de tablero" de Notion) que corre **
 
 ## Cómo se corre
 
-Todavía no aplica: no hay código. Cuando exista, el comando va acá y se prueba antes de escribirlo.
+```powershell
+npm.cmd start
+```
+
+Levanta el servidor en `http://127.0.0.1:3000`: sólo atiende conexiones de **este equipo**, no de la red local. `Ctrl+C` lo corta. Para otro puerto:
+
+```powershell
+$env:PORT=3210; npm.cmd start
+```
+
+Qué responde hoy (verificado el 2026-10-12 ejecutando, no leyendo el código):
+
+| Método y ruta | Respuesta |
+|---|---|
+| `GET /` | `200` con `publico/index.html` |
+| `GET /api/salud` | `200` con `{"ok":true}` |
+| cualquier otra ruta o método | `404` con un JSON que dice qué ruta no existe |
+
+Se verifica contra el puerto, con `curl.exe` y no con el navegador (en PowerShell, `curl` a secas es un alias de `Invoke-WebRequest`: hay que escribir `curl.exe`):
+
+```powershell
+curl.exe -i http://127.0.0.1:3000/api/salud
+```
 
 ## Contexto que no hay que perder de vista
 

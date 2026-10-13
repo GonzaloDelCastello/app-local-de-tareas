@@ -18,7 +18,8 @@ El plan y las decisiones estan en `docs/`.
 - **No afirmar que algo funciona sin haberlo ejecutado.** Si no se pudo verificar, decirlo.
 - `node --check` **no es una prueba**: detecta sintaxis, no errores de referencia. Hay que ejecutar el modulo.
 - Comandos del proyecto (los del `package.json`): `npm.cmd start` y `npm.cmd test`.
-  `start` corre `node src/servidor.mjs`; hasta que ese archivo exista, falla con `ERR_MODULE_NOT_FOUND` y exit code 1.
+  `start` corre `node src/servidor.mjs`, que escucha en `http://127.0.0.1:3000` (se puede pisar con `$env:PORT`).
+- El servidor se verifica **contra el puerto**, con `curl.exe -i`, no con el navegador. Ojo: en PowerShell `curl` a secas es un alias de `Invoke-WebRequest`.
 - Todavia no hay pruebas escritas. `node --test` con cero archivos de prueba sale con exit code 0 (verificado en v22.19.0).
 
 ## Entorno verificado (2026-10-12)

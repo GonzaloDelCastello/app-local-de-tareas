@@ -20,6 +20,7 @@ Las decisiones cerradas no se reabren sin decirlo explícitamente.
 | **C11** | **La ruta de los datos es configurable: `datos\` por defecto, la real se apunta cuando la app esté lista** | 2026-10-12 | Decisión D7, opción C. El código no cambia cuando el dato cambia de lugar |
 | **C12** | **El pomodoro se registra como eventos con marca de tiempo; el contador de pomodoros es una vista derivada** | 2026-10-12 | Decisión D8. Un entero acumulado en la tarea no se puede auditar ni cruzar con horarios, que es lo que necesita `rendimiento` |
 | **C13** | **El código se publica en GitHub en un repositorio privado; los datos de tareas no salen de este equipo** | 2026-10-12 | El repo local no tenía remoto y el `push` fallaba. Privado porque los documentos citan rutas del equipo y el modo de trabajo local |
+| **C14** | **Para las etapas que Gonzalo todavía no puede escribir, el agente escribe el código y lo explica; Gonzalo lo ejecuta, lo rompe a propósito y lo modifica** | 2026-10-12 | Decisión D10, opción A. Sostiene el avance sin resignar el aprendizaje: leer, romper y modificar código real también es parte de diseñar software con agentes |
 
 **Consecuencias de C11:** la ruta de datos vive en `config.mjs`, no dispersa en el código. El valor por defecto apunta a `datos\` dentro del repo (ya excluido por `.gitignore`), así que el desarrollo no escribe fuera del proyecto. El markdown derivado que leen los agentes se publica en la ruta que fije la configuración.
 
@@ -114,6 +115,12 @@ Propuesta: **A**, y el resto como etapas siguientes. El MVP tiene que quedar usa
 **Recomendada: A.** No traba la Etapa 1: se puede decidir cuando se cierre la Etapa 3.
 
 **Estado:** sin decidir.
+
+### D10 — El método por pasos, cuando Gonzalo no sabe escribir la etapa
+
+**Resuelta el 2026-10-12 como C14 (opción A).** Las tres opciones que se evaluaron: (A) el agente escribe y explica, Gonzalo ejecuta, rompe y modifica; (B) el agente hace el andamiaje y Gonzalo la parte central de cada etapa; (C) volver a C8 tal cual.
+
+Se eligió **A con una condición**: cada etapa cierra con un ejercicio donde Gonzalo rompe el código a propósito y comprueba que la verificación lo detecta. **C8 sigue siendo el horizonte** — cuando las etapas empiecen a ser escribibles, se vuelve a él.
 
 ## Hechos del entorno ya verificados
 

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>App local de tareas</title>
+  <!-- Sin favicon propio: este href vacio evita que el navegador pida
+       /favicon.ico y ensucie el registro del servidor con un 404. -->
+  <link rel="icon" href="data:,">
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 40rem;
+      margin: 3rem auto;
+      padding: 0 1rem;
+      line-height: 1.6;
+    }
+    code {
+      background: #eeeeee;
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+    }
+    #salud {
+      font-family: ui-monospace, Consolas, monospace;
+      padding: 0.75rem;
+      border-radius: 6px;
+      background: #f2f2f2;
+    }
+    .ok { color: #0a6b2d; }
+    .error { color: #a11111; }
+  </style>
+</head>
+<body>
+  <h1>App local de tareas</h1>
+  <p>Etapa 1: el servidor responde. Todavia no hay tablero.</p>
+  <p>
+    Esta pagina la sirve <code>src/servidor.mjs</code> desde
+    <code>publico/index.html</code>.
+  </p>
+
+  <h2>Salud del servidor · /api/salud</h2>
+  <p id="salud">Consultando <code>/api/salud</code>...</p>
+
+  <!-- type="module" permite usar await en el nivel de arriba del script, sin
+       envolver todo en una funcion. Es el mismo tipo de modulo que usa Node. -->
+  <script type="module">
+    const destino = document.querySelector('#salud');
+
+    try {
+      const respuesta = await fetch('/api/salud');
+      const datos = await respuesta.json();
+      destino.textContent = `${respuesta.status} ${JSON.stringify(datos)}`;
+      destino.className = respuesta.ok ? 'ok' : 'error';
+    } catch (error) {
+      // Si el servidor no contesta, fetch rechaza la promesa y caemos aca.
+      destino.textContent = `No se pudo consultar: ${error.message}`;
+      destino.className = 'error';
+    }
+  </script>
+</body>
+</html>
