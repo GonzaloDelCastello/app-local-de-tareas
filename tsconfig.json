@@ -1,0 +1,22 @@
+{
+  // Node ejecuta .ts borrando los tipos, sin compilar. Este tsconfig NO genera
+  // archivos: sirve solo para que `tsc --noEmit` verifique que los tipos cierran.
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "noEmit": true,
+
+    // Prohibe lo que Node no puede ejecutar: enum, namespace y
+    // constructor(public x). Es la red que evita el error de runtime.
+    "erasableSyntaxOnly": true,
+
+    // Node no resuelve modulos TypeScript: hay que escribir la extension .ts
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*.ts"]
+}
