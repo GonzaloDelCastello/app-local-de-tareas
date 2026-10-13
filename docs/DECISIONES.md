@@ -19,10 +19,13 @@ Las decisiones cerradas no se reabren sin decirlo explícitamente.
 | **C10** | **`git init` + `.gitignore` + `AGENTS.md` propio del repo** | 2026-10-12 | Decisión D6. El `.git` además fija la raíz de proyecto para `AGENTS.md` |
 | **C11** | **La ruta de los datos es configurable: `datos\` por defecto, la real se apunta cuando la app esté lista** | 2026-10-12 | Decisión D7, opción C. El código no cambia cuando el dato cambia de lugar |
 | **C12** | **El pomodoro se registra como eventos con marca de tiempo; el contador de pomodoros es una vista derivada** | 2026-10-12 | Decisión D8. Un entero acumulado en la tarea no se puede auditar ni cruzar con horarios, que es lo que necesita `rendimiento` |
+| **C13** | **El código se publica en GitHub en un repositorio privado; los datos de tareas no salen de este equipo** | 2026-10-12 | El repo local no tenía remoto y el `push` fallaba. Privado porque los documentos citan rutas del equipo y el modo de trabajo local |
 
 **Consecuencias de C11:** la ruta de datos vive en `config.mjs`, no dispersa en el código. El valor por defecto apunta a `datos\` dentro del repo (ya excluido por `.gitignore`), así que el desarrollo no escribe fuera del proyecto. El markdown derivado que leen los agentes se publica en la ruta que fije la configuración.
 
 **Consecuencias de C12:** un evento es *inicio*, *fin* o *abandono*, con marca de tiempo y tarea asociada; el número que ve el tablero se calcula. Se sostiene en H4: los datos son la fuente de verdad, los resúmenes son vistas. **Y agrega un requisito duro a la interfaz:** el pomodoro en curso tiene que sobrevivir a recargar la página, así que su estado vive en el servidor, no en el DOM. Si el reloj corriera sólo en el navegador, cerrar la pestaña perdería el conteo y `rendimiento` leería datos incompletos.
+
+**Consecuencias de C13:** el remoto `origin` quedó apuntando a `https://github.com/GonzaloDelCastello/app-local-de-tareas.git` (agregado el 2026-10-12, sin subir todavía). `datos\` sigue excluido por `.gitignore` (C11), así que se publican **código y documentos, nunca tareas**. La autenticación la resuelve Git Credential Manager: el token vive en el gestor de credenciales de Windows y **nunca** en un archivo del repo.
 
 ## Hallazgos del relevamiento — 2026-10-12
 
@@ -124,3 +127,4 @@ Propuesta: **A**, y el resto como etapas siguientes. El MVP tiene que quedar usa
 | `rendimiento` **no** tiene `shell` ni `plan` en lo instalado | Ibídem. Contradice a `agentes.json` (ver H1) | 2026-10-12 |
 | Ningún preset restringe rutas de archivos: el alcance lo fija el workspace | `tool-fs` montado sin config; `ARQUITECTURA.md` §5.5 | 2026-10-12 |
 | Las 12 skills las ven **los siete** agentes: no hay asignación por preset | Único `customSkillDirs` en el perfil | 2026-10-12 |
+| La sesión del agente **no tiene salida a GitHub**: `curl` y `git ls-remote` fallan con `schannel: AcquireCredentialsHandle failed: SEC_E_NO_CREDENTIALS`, igual contra `github.com` que contra `example.com`. El DNS sí resuelve (`github.com` → `4.228.31.150`), así que es aislamiento de la sesión y no falta de red. **Consecuencia: `push` y `pull` los corre Gonzalo** | `curl.exe -sS https://github.com`, `git ls-remote https://github.com/octocat/Hello-World HEAD` (exit 128) | 2026-10-12 |

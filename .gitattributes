@@ -1,0 +1,11 @@
+# Fin de linea: LF en el repositorio y tambien en el disco.
+#
+# Por que existe este archivo: la instalacion de Git for Windows trae
+# core.autocrlf=true en el gitconfig del sistema, asi que sin esta regla git
+# reescribe los archivos de texto con CRLF en el working copy la proxima vez
+# que los toca (un checkout, un pull). El repositorio quedaba bien, el disco
+# no. La convencion del proyecto es UTF-8 sin BOM y fin de linea LF.
+#
+# Con eol=lf la regla vale para cualquier maquina, sin depender de la
+# configuracion de git de cada una.
+* text=auto eol=lf

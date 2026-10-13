@@ -1,8 +1,8 @@
-﻿# Dependencias (todavia no hay, pero la carpeta no se versiona)
+# Dependencias (todavia no hay, pero la carpeta no se versiona)
 node_modules/
 
 # Datos locales de la app: tareas de prueba durante el desarrollo.
-# Los datos reales no viven aca (ver D7 en docs/DECISIONES.md)
+# Los datos reales no viven aca (ver C11 en docs/DECISIONES.md)
 datos/
 
 # Bases de datos de la etapa SQLite
