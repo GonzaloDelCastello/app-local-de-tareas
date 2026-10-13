@@ -1,0 +1,14 @@
+{
+  "name": "app-local-de-tareas",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tablero de tareas local (Kanban) con contador pomodoro. Node.js + HTML, solo en localhost.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/servidor.mjs",
+    "test": "node --test"
+  }
+}
