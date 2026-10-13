@@ -43,6 +43,23 @@ Se verifica contra el puerto, con `curl.exe` y no con el navegador (en PowerShel
 curl.exe -i http://127.0.0.1:3000/api/salud
 ```
 
+### Los dos servidores, lado a lado
+
+Hay dos implementaciones del mismo contrato, a propósito (ver C15 en [DECISIONES.md](docs/DECISIONES.md)):
+
+| Comando | Archivo | Con qué está hecho |
+|---|---|---|
+| `npm.cmd start` | [src/servidor.mjs](src/servidor.mjs) | sólo módulos de Node (`node:http`), todo a mano |
+| `npm.cmd run start:express` | [src/servidor-express.mjs](src/servidor-express.mjs) | Express 5.3.0 |
+
+Responden lo mismo y **no pueden correr juntos**: los dos quieren el puerto 3000, y el segundo que arranca muere con exit code 1 y el mensaje de puerto ocupado. La comparación línea por línea de qué hace Express por vos está en [RUTA-APRENDIZAJE.md](docs/RUTA-APRENDIZAJE.md).
+
+Express es la **única dependencia** del proyecto. Desde una sesión del agente, npm no puede escribir en su caché por defecto (vive fuera del workspace), así que para reinstalar hay que apuntarla a un temporal:
+
+```powershell
+npm.cmd install --cache "$env:TEMP\npm-cache-dsh"
+```
+
 ## Contexto que no hay que perder de vista
 
 Los presets `gabinete` y `rendimiento` ya mantienen su propio registro de tareas en texto:

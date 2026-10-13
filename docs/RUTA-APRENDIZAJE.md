@@ -30,6 +30,19 @@ Lo verificado hoy, y cómo:
 
 **Se verifica:** con `curl` o `Invoke-RestMethod` contra el puerto, no con el navegador. Si no podés mostrar la respuesta cruda, no está verificado.
 
+**Comparación con Express — hecha el 2026-10-13 (C15).** La etapa pedía construir el servidor "sin Express primero, para ver qué hace Express por vos". `src/servidor-express.mjs` es el mismo contrato escrito con Express, y esto es lo que cambia:
+
+| Lo que en `node:http` hicimos a mano | Lo que Express hace por vos |
+|---|---|
+| dos `if` con `req.method` y `req.url` | `app.get(ruta, funcion)`: el router compara método y ruta |
+| `new URL(req.url, base)` para separar el query string | `req.path` ya viene sin el query, y `req.query` ya parseado |
+| `responderJson()`: `JSON.stringify`, `Content-Type`, `Content-Length` en bytes | `res.json()`, con el manejo de escapes incluido |
+| `servirArchivo()`: leer el archivo, deducir el tipo, calcular el largo, atajar el error | `express.static()`, que además agrega `ETag`, `Last-Modified`, `Cache-Control`, `Accept-Ranges`, rangos y el rechazo de rutas con `..` |
+| el `404` escrito al final del handler | un middleware sin ruta, puesto al final |
+| el `try/catch` alrededor de la lectura | un middleware de error, que Express distingue por tener **cuatro** argumentos |
+
+**Y una diferencia de comportamiento, no de estilo:** si falta el `index.html`, la versión `node:http` responde **`500`** (la ruta existe, el archivo que debía servir no) y la de Express responde **`404`** (el estático no lo encuentra y le pasa la petición al middleware del final). Verificado con una carpeta vacía dentro de `publico/`, que después se borró.
+
 ---
 
 ## Etapa 2 — El modelo de datos
