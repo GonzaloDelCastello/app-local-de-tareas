@@ -2,7 +2,8 @@
 
 Tablero de tareas tipo **Kanban** (la "vista de tablero" de Notion) que corre **sólo en este equipo**.
 
-- **Node.js + HTML**, servido en `localhost`. Sin servidor remoto, sin cuentas, sin nube.
+- **Node.js + TypeScript + HTML**, servido en `localhost`. Sin servidor remoto, sin cuentas, sin nube.
+- El código se ejecuta **sin compilar**: Node borra los tipos y corre el `.ts` directamente. `npm.cmd run tipos` (`tsc --noEmit`) es lo único que verifica que los tipos cierren.
 - Los datos tienen que poder **leerlos y escribirlos** los presets `gabinete` y `rendimiento` del cuartel general (`C:\Users\gonza\DeepS`).
 - Incluye un **contador pomodoro**, y el registro de pomodoros es un dato más que la app publica para el agente `rendimiento` (ver C12 en [DECISIONES.md](docs/DECISIONES.md)).
 - El objetivo del proyecto es **aprender**: cada pieza se decide, se escribe y se verifica en conjunto.
@@ -29,7 +30,7 @@ Levanta el servidor en `http://127.0.0.1:3000`: sólo atiende conexiones de **es
 $env:PORT=3210; npm.cmd start
 ```
 
-Qué responde hoy (verificado el 2026-10-12 ejecutando, no leyendo el código):
+Qué responde hoy (verificado el 2026-10-13 ejecutando, no leyendo el código):
 
 | Método y ruta | Respuesta |
 |---|---|
@@ -43,18 +44,28 @@ Se verifica contra el puerto, con `curl.exe` y no con el navegador (en PowerShel
 curl.exe -i http://127.0.0.1:3000/api/salud
 ```
 
-### Los dos servidores, lado a lado
+Los otros dos comandos de verificación:
 
-Hay dos implementaciones del mismo contrato, a propósito (ver C15 en [DECISIONES.md](docs/DECISIONES.md)):
+```powershell
+npm.cmd run tipos    # tsc --noEmit: verifica los tipos, no genera archivos
+npm.cmd test         # las pruebas del dominio (src\*.test.ts)
+```
+
+Desde una sesión del agente, las pruebas necesitan `--experimental-test-isolation=none`: el runner de `node --test` lanza un subproceso y el sandbox lo bloquea con `EPERM`.
+
+### Las tres versiones del servidor, lado a lado
+
+Hay tres implementaciones del mismo contrato, a propósito (ver C15 y C17 en [DECISIONES.md](docs/DECISIONES.md)):
 
 | Comando | Archivo | Con qué está hecho |
 |---|---|---|
-| `npm.cmd start` | [src/servidor.mjs](src/servidor.mjs) | sólo módulos de Node (`node:http`), todo a mano |
+| `npm.cmd start` | [src/servidor.ts](src/servidor.ts) | sólo módulos de Node (`node:http`), todo a mano. **Es el activo** |
+| — | [src/servidor.mjs](src/servidor.mjs) | el mismo, en JavaScript: quedó como referencia de la migración a TypeScript |
 | `npm.cmd run start:express` | [src/servidor-express.mjs](src/servidor-express.mjs) | Express 5.3.0 |
 
-Responden lo mismo y **no pueden correr juntos**: los dos quieren el puerto 3000, y el segundo que arranca muere con exit code 1 y el mensaje de puerto ocupado. La comparación línea por línea de qué hace Express por vos está en [RUTA-APRENDIZAJE.md](docs/RUTA-APRENDIZAJE.md).
+Responden lo mismo y **no pueden correr juntos**: los tres quieren el puerto 3000, y el segundo que arranca muere con exit code 1 y el mensaje de puerto ocupado. La comparación línea por línea de qué hace Express por vos está en [RUTA-APRENDIZAJE.md](docs/RUTA-APRENDIZAJE.md).
 
-Express es la **única dependencia** del proyecto. Desde una sesión del agente, npm no puede escribir en su caché por defecto (vive fuera del workspace), así que para reinstalar hay que apuntarla a un temporal:
+Express es la única dependencia de **runtime**; `typescript` y `@types/node` son `devDependencies` y sólo sirven para verificar los tipos, no entran al programa. Desde una sesión del agente, npm no puede escribir en su caché por defecto (vive fuera del workspace), así que para reinstalar hay que apuntarla a un temporal:
 
 ```powershell
 npm.cmd install --cache "$env:TEMP\npm-cache-dsh"

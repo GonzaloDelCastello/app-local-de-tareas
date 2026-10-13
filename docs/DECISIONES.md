@@ -22,6 +22,17 @@ Las decisiones cerradas no se reabren sin decirlo explícitamente.
 | **C13** | **El código se publica en GitHub en un repositorio privado; los datos de tareas no salen de este equipo** | 2026-10-12 | El repo local no tenía remoto y el `push` fallaba. Privado porque los documentos citan rutas del equipo y el modo de trabajo local |
 | **C14** | **Para las etapas que Gonzalo todavía no puede escribir, el agente escribe el código y lo explica; Gonzalo lo ejecuta, lo rompe a propósito y lo modifica** | 2026-10-12 | Decisión D10, opción A. Sostiene el avance sin resignar el aprendizaje: leer, romper y modificar código real también es parte de diseñar software con agentes |
 | **C15** | **Express entra como dependencia, en un archivo aparte (`src/servidor-express.mjs`), sin borrar el servidor de `node:http`** | 2026-10-13 | La Etapa 1 se hizo con `node:http` justamente "para ver qué hace Express por vos". Con los dos archivos lado a lado la comparación es concreta y no de memoria |
+| **C16** | **El código se escribe en TypeScript y se ejecuta sin compilar (type stripping de Node). `tsc --noEmit` verifica los tipos** | 2026-10-13 | TypeScript agrega la única garantía que JavaScript no da: que las formas de los datos cierren antes de correr. Y sin build step, porque Node 22 borra los tipos |
+| **C17** | **El servidor de la Etapa 1 pasa a `src/servidor.ts`; `src/servidor.mjs` queda como referencia de la migración, sin borrar** | 2026-10-13 | `start` apunta al `.ts`. El `.mjs` se conserva para ver lado a lado qué cambió al agregar tipos, igual que la comparación con Express. **Borrar `servidor.mjs` queda pendiente de confirmación** |
+
+**Consecuencias de C16:** tres reglas duras del TypeScript que Node ejecuta, porque sólo borra tipos y no transforma sintaxis:
+1. **`enum` no se puede usar** (genera código): se usa unión de literales, `type Estado = "pendiente" | "en-curso" | ...`.
+2. **`constructor(public id: string)` no se puede usar** (abrevia y genera código): los campos se declaran y se asignan a mano.
+3. **Los imports llevan la extensión `.ts`** (`from "./tipos.ts"`): Node no resuelve módulos TypeScript.
+
+Y una advertencia que hay que tener siempre presente: **Node borra los tipos, no los verifica**. `const n: number = "texto"` se ejecuta sin protestar. El `tsconfig.json` usa `erasableSyntaxOnly: true`, así que `tsc` rechaza las construcciones que Node no podría correr.
+
+**Dependencias que agrega:** `typescript` y `@types/node` como `devDependencies`. No entran al runtime: son sólo para verificar. Los `.mjs` **no** quedan bajo el type-check (el `include` del tsconfig es `src/**/*.ts`).
 
 **Consecuencias de C11:** la ruta de datos vive en `config.mjs`, no dispersa en el código. El valor por defecto apunta a `datos\` dentro del repo (ya excluido por `.gitignore`), así que el desarrollo no escribe fuera del proyecto. El markdown derivado que leen los agentes se publica en la ruta que fije la configuración.
 

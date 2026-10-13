@@ -13,12 +13,25 @@ El plan y las decisiones estan en `docs/`.
 - Leer `docs/DECISIONES.md` primero. **Las decisiones cerradas no se reabren sin decirlo explicitamente.**
 - Leer el codigo antes de proponer cambios sobre el: no opinar de memoria.
 
+## Escritura de archivos
+
+- **Leer un archivo antes de escribirlo. Nunca sobrescribir a ciegas.** El 2026-10-13 una sesion sobrescribio `package.json` sin leerlo y se perdieron la `description` y los scripts; se recuperaron desde git.
+- **Antes de reconstruir un archivo de memoria, mirarlo en git:** `git show HEAD:package.json`. La copia versionada es la fuente de verdad, no el recuerdo.
+- **Este shell es PowerShell 5.1**, y en 5.1 `Set-Content -Encoding utf8` escribe **con BOM**. La convencion del proyecto es UTF-8 **sin BOM**. Para escribir texto, usar:
+  ```powershell
+  [System.IO.File]::WriteAllText($ruta, $texto, (New-Object System.Text.UTF8Encoding($false)))
+  ```
+- Los saltos de linea van en **LF**: reemplazar `\r\n` por `\n` antes de escribir.
+- Para tocar `package.json` no se edita a mano: se usa `npm.cmd pkg set scripts.<nombre>="<comando>"`.
+
 ## Verificacion
 
 - **No afirmar que algo funciona sin haberlo ejecutado.** Si no se pudo verificar, decirlo.
 - `node --check` **no es una prueba**: detecta sintaxis, no errores de referencia. Hay que ejecutar el modulo.
-- Comandos del proyecto (los del `package.json`): `npm.cmd start`, `npm.cmd run start:express` y `npm.cmd test`.
-  `start` corre `node src/servidor.mjs` y `start:express` corre `node src/servidor-express.mjs`. Los dos escuchan en `http://127.0.0.1:3000` (se puede pisar con `$env:PORT`) y **no pueden convivir**.
+- Comandos del proyecto (los del `package.json`): `npm.cmd start`, `npm.cmd run start:express`, `npm.cmd test` y `npm.cmd run tipos`.
+  `start` corre `node src/servidor.ts` y `start:express` corre `node src/servidor-express.mjs`. Los dos escuchan en `http://127.0.0.1:3000` (se puede pisar con `$env:PORT`) y **no pueden convivir**.
+- `npm.cmd run tipos` corre `tsc --noEmit`: verifica los tipos **sin generar archivos**. Es la unica verificacion que convierte los tipos en una garantia. `node` solo BORRA los tipos: ejecuta igual un `const n: number = "texto"`.
+- Hay pruebas en `src/*.test.ts`. **Desde una sesion del agente** hay que agregar `--experimental-test-isolation=none`: el runner de `node --test` lanza un subproceso y el sandbox lo bloquea con `EPERM`. En una terminal normal, `npm.cmd test` alcanza.
 - Desde una sesion del agente, `npm install` necesita `--cache "$env:TEMP\npm-cache-dsh"`: su cache por defecto vive fuera del workspace y falla con `EPERM`.
 - El servidor se verifica **contra el puerto**, con `curl.exe -i`, no con el navegador. Ojo: en PowerShell `curl` a secas es un alias de `Invoke-WebRequest`.
 - Todavia no hay pruebas escritas. `node --test` con cero archivos de prueba sale con exit code 0 (verificado en v22.19.0).

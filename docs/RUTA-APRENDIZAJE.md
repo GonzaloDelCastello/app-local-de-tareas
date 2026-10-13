@@ -43,6 +43,26 @@ Lo verificado hoy, y cómo:
 
 **Y una diferencia de comportamiento, no de estilo:** si falta el `index.html`, la versión `node:http` responde **`500`** (la ruta existe, el archivo que debía servir no) y la de Express responde **`404`** (el estático no lo encuentra y le pasa la petición al middleware del final). Verificado con una carpeta vacía dentro de `publico/`, que después se borró.
 
+### TypeScript en la Etapa 1 — 2026-10-13 (C16)
+
+El servidor de `node:http` pasó de `src/servidor.mjs` a `src/servidor.ts` **sin build step**: Node borra los tipos y ejecuta el `.ts` directamente. La comparación lado a lado queda viva porque el `.mjs` no se borró.
+
+**Lo que aparece al migrar, y que en JavaScript estaba escondido:**
+
+| Lo que TypeScript te obliga a mirar | Por qué existía igual en JavaScript |
+|---|---|
+| `req.method` y `req.url` son `string \| undefined` | Siempre pudieron ser `undefined`; nadie te avisaba hasta que se caía |
+| En un `catch`, el error es `unknown`, no `Error` | En JavaScript se puede lanzar cualquier cosa: un string, un número |
+| `res` hay que tiparlo (`ServerResponse`) y se importa como **tipo** | El tipo existía en tu cabeza, no en el código |
+
+**Las tres reglas duras, porque Node sólo borra tipos y no transforma sintaxis:**
+
+1. **`enum` no se puede usar** — genera código. Se usa unión de literales: `type Estado = "pendiente" | "en-curso" | ...`.
+2. **`constructor(public id: string)` no se puede usar** — abrevia y genera código. Los campos se declaran y se asignan a mano.
+3. **Los imports llevan la extensión `.ts`** — Node no resuelve módulos TypeScript.
+
+**Y la advertencia central, que es la lección de la etapa:** Node **borra** los tipos, no los verifica. `const n: number = "texto"` se ejecuta sin protestar. El que verifica es `tsc --noEmit` (`npm.cmd run tipos`), y el `tsconfig.json` usa `erasableSyntaxOnly: true` para que rechace justo lo que Node no podría correr. **Sin ese comando, TypeScript es sólo documentación.**
+
 ---
 
 ## Etapa 2 — El modelo de datos
