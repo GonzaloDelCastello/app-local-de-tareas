@@ -34,6 +34,44 @@ Y una advertencia que hay que tener siempre presente: **Node borra los tipos, no
 
 **Dependencias que agrega:** `typescript` y `@types/node` como `devDependencies`. No entran al runtime: son sólo para verificar. Los `.mjs` **no** quedan bajo el type-check (el `include` del tsconfig es `src/**/*.ts`).
 
+| **C18** | **El contrato de la API vive en `src/api.ts`, separado del servidor, y escrito en `docs/API.md`** | 2026-10-13 | `servidor.ts` sabe de HTTP; `api.ts` sabe del dominio por HTTP. Separados, cambiar una regla del tablero no obliga a tocar el archivo que maneja sockets. Y el contrato escrito es lo que permite que el navegador y los agentes no adivinen |
+
+| **C19** | **La interfaz es HTML + CSS + JS vanilla (sin framework), el servidor es la única fuente de estado en pantalla, y los archivos se sirven desde un mapa explícito** | 2026-10-13 | Decisión D5, llevada al código. Sin framework se ve el DOM, los eventos y `fetch` sin magia. El estado vive en dos lugares (servidor y DOM): para que no discrepen, manda el servidor y se relee después de cada cambio. Y el mapa explícito de estáticos hace imposible pedir `../src/config.ts` |
+
+| **C20** | **El CSS se escribe en cinco modulos con capas de cascada (`@layer`), tokens en custom properties y modo oscuro automatico** | 2026-10-13 | Un CSS que crece sin estructura se vuelve insostenible: para pisar un estilo hay que pelear con especificidad. Con capas, cada regla vive en un nivel y la prioridad se elige una vez. Y los valores viven en un solo archivo, no repetidos |
+| **C21** | **Los estáticos se sirven con contención de ruta, en lugar del mapa explícito de C19** | 2026-10-13 | El mapa obligaba a editar el servidor cada vez que se agregaba un módulo de CSS. Ahora se sirve cualquier archivo de `publico/` **después de resolver la ruta y comprobar que sigue adentro**, más una lista blanca de extensiones. CSS modular sin fricción, y sin abrir una puerta |
+
+**Consecuencias de C20:** los cinco módulos y su motivo:
+
+| Módulo | Qué contiene | Por qué separado |
+|---|---|---|
+| `tokens.css` | Sólo variables: color, espacio, tipografía, sombras, movimiento | Es el único lugar donde vive un valor. Si un color aparece dos veces, está mal |
+| `base.css` | Normalización, tipografía base, foco, `prefers-reduced-motion` | Reglas para elementos sin clase: no son diseño de un componente |
+| `layout.css` | Dónde va cada cosa: cabecera, captura, grilla del tablero, pie | "Cómo se acomoda" y "cómo se ve" son preguntas distintas |
+| `componentes.css` | Controles, botones, columna, tarjeta, aviso, diálogo | Cada bloque dice **qué es**, no cómo se ve |
+| `utilidades.css` | `.visualmente-oculto`, `.oculto` | Es la última capa: le gana a todas. Por eso tiene que quedar chico |
+
+Y tres decisiones de fondo: **el orden de capas se declara una sola vez** (al principio de `tokens.css`), así el orden de los `<link>` no cambia el resultado; **no se usa `@import`** para que los archivos se pidan en paralelo y el orden se lea en el HTML; y **el modo oscuro se activa solo** con `prefers-color-scheme`, sin botón ni preferencia guardada (menos estado que mantener).
+
+**Consecuencias de C21:** la verificación que importa es que, después de resolver la ruta, el resultado siga estando adentro de `publico/`. **No alcanza con buscar `".."` en el texto**: `%2e%2e%2f` también es `..`. Resolver y comparar rutas es lo que no se puede burlar. Verificado con ocho formas de ataque, las ocho dan `404`, y con un `.json` real dentro de `publico/` que tampoco se sirve (lista blanca de extensiones).
+
+**Consecuencias de C19:**
+1. **`textContent`, nunca `innerHTML`**: el título lo escribe una persona, y con `innerHTML` un título con `<script>` se ejecutaría en el navegador.
+2. **La fecha de hoy se calcula en hora local**, no con `toISOString()`, que a las 22 de la Argentina devuelve el día siguiente.
+3. **La interfaz convierte `""` a `null`** antes de mandar: el contrato pide `null` para "sin valor" y un string vacío es un `400`.
+4. **Las flechas y el arrastre hacen lo mismo.** El arrastre es la comodidad; las flechas son la operación confiable (y la que se puede verificar sin navegador).
+5. **El servidor sólo entrega cuatro rutas** (`/`, `/index.html`, `/app.js`, `/estilos.css`). Lo que no está en el mapa, no se sirve. *(Reemplazado por C21: cambió por contención de ruta, porque el mapa obligaba a tocar el servidor cada vez que se agregaba un módulo de CSS.)*
+6. **La interfaz se verifica con `herramientas/probar-interfaz.mjs`**: ejecuta `app.js` fuera del navegador con un DOM de mentira, contra el servidor real. Prueba la lógica y la integración, **no** el aspecto visual.
+
+**Consecuencias de C18 — las decisiones de forma del contrato:**
+1. **La lista va envuelta**: `{ "tareas": [...], "total": N }` y no una lista pelada, para poder agregar campos sin romper a quien ya la usa.
+2. **El `id` y las fechas son del servidor**: mandarlos es `400`. Aceptarlos en silencio haría creer al cliente que los está fijando.
+3. **`DELETE` de algo que no existe es `404`, no `204`.** Es discutible (buena parte de la bibliografía lo trata como idempotente y devuelve `204`), y se eligió el aviso.
+4. **`estado: null` es `400`**: no existe el "sin estado". `balde` y `dimension` sí aceptan `null` (= "sin clasificar todavía").
+5. **`estado` y `orden` no se fijan al crear**: una tarea nace en `pendiente` y orden `0`.
+6. **El error dice qué campo falló**, en `detalles`.
+7. **Los `GET` no regeneran el tablero**; `POST`, `PATCH` y `DELETE` sí, y si la regeneración falla la operación igual se considera exitosa (el dato ya está guardado y el tablero es una vista que se rehace).
+
 **Consecuencias de C11:** la ruta de datos vive en `config.mjs`, no dispersa en el código. El valor por defecto apunta a `datos\` dentro del repo (ya excluido por `.gitignore`), así que el desarrollo no escribe fuera del proyecto. El markdown derivado que leen los agentes se publica en la ruta que fije la configuración.
 
 **Consecuencias de C12:** un evento es *inicio*, *fin* o *abandono*, con marca de tiempo y tarea asociada; el número que ve el tablero se calcula. Se sostiene en H4: los datos son la fuente de verdad, los resúmenes son vistas. **Y agrega un requisito duro a la interfaz:** el pomodoro en curso tiene que sobrevivir a recargar la página, así que su estado vive en el servidor, no en el DOM. Si el reloj corriera sólo en el navegador, cerrar la pestaña perdería el conteo y `rendimiento` leería datos incompletos.

@@ -8,7 +8,7 @@ Tablero de tareas tipo **Kanban** (la "vista de tablero" de Notion) que corre **
 - Incluye un **contador pomodoro**, y el registro de pomodoros es un dato más que la app publica para el agente `rendimiento` (ver C12 en [DECISIONES.md](docs/DECISIONES.md)).
 - El objetivo del proyecto es **aprender**: cada pieza se decide, se escribe y se verifica en conjunto.
 
-**Estado: la Etapa 1 corre y está verificada.** El resto sigue en diseño. Las decisiones se toman en [DECISIONES.md](docs/DECISIONES.md), y la Etapa 1 todavía no está *recorrida* por Gonzalo: el código lo escribió el agente y el ejercicio de ruptura queda pendiente (ver C14).
+**Estado: la app funciona.** Dominio, almacén, API e interfaz, con 43 pruebas automáticas y una comprobación de la interfaz contra el servidor real. Lo que falta es el pasaje a SQLite y la integración con los agentes (Etapa 6). Las decisiones se toman en [DECISIONES.md](docs/DECISIONES.md).
 
 ## Documentos
 
@@ -16,6 +16,7 @@ Tablero de tareas tipo **Kanban** (la "vista de tablero" de Notion) que corre **
 |---|---|
 | [DECISIONES.md](docs/DECISIONES.md) | Las decisiones de arquitectura, con su estado y el porqué |
 | [RUTA-APRENDIZAJE.md](docs/RUTA-APRENDIZAJE.md) | Qué conceptos aprender en cada etapa, y en qué orden |
+| [API.md](docs/API.md) | **El contrato de la API**: rutas, códigos de estado, formas y errores |
 | [BIBLIOGRAFIA.md](docs/BIBLIOGRAFIA.md) | Una fuente oficial por etapa, con las URLs verificadas |
 
 ## Cómo se corre
@@ -24,7 +25,7 @@ Tablero de tareas tipo **Kanban** (la "vista de tablero" de Notion) que corre **
 npm.cmd start
 ```
 
-Levanta el servidor en `http://127.0.0.1:3000`: sólo atiende conexiones de **este equipo**, no de la red local. `Ctrl+C` lo corta. Para otro puerto:
+Levanta el servidor en `http://127.0.0.1:3000`: sólo atiende conexiones de **este equipo**, no de la red local. **Abrí esa dirección en el navegador** y ahí está el tablero. `Ctrl+C` lo corta. Para otro puerto:
 
 ```powershell
 $env:PORT=3210; npm.cmd start
@@ -36,7 +37,15 @@ Qué responde hoy (verificado el 2026-10-13 ejecutando, no leyendo el código):
 |---|---|
 | `GET /` | `200` con `publico/index.html` |
 | `GET /api/salud` | `200` con `{"ok":true}` |
-| cualquier otra ruta o método | `404` con un JSON que dice qué ruta no existe |
+| `GET /api/tareas` | `200` con `{"tareas":[...],"total":N}` |
+| `POST /api/tareas` | `201` con la tarea creada y `Location` |
+| `GET /api/tareas/:id` | `200` con la tarea, o `404` |
+| `PATCH /api/tareas/:id` | `200` con la tarea modificada |
+| `DELETE /api/tareas/:id` | `204` sin cuerpo, o `404` |
+| ruta de la API con el método equivocado | `405` con el encabezado `Allow` |
+| cualquier otra ruta | `404` con un JSON que dice qué ruta no existe |
+
+El detalle completo —códigos, formas, errores e invariantes— está en [API.md](docs/API.md).
 
 Se verifica contra el puerto, con `curl.exe` y no con el navegador (en PowerShell, `curl` a secas es un alias de `Invoke-WebRequest`: hay que escribir `curl.exe`):
 
@@ -44,12 +53,23 @@ Se verifica contra el puerto, con `curl.exe` y no con el navegador (en PowerShel
 curl.exe -i http://127.0.0.1:3000/api/salud
 ```
 
-Los otros dos comandos de verificación:
+Los otros comandos:
 
 ```powershell
-npm.cmd run tipos    # tsc --noEmit: verifica los tipos, no genera archivos
-npm.cmd test         # las pruebas del dominio (src\*.test.ts)
+npm.cmd run tipos          # tsc --noEmit: verifica los tipos, no genera archivos
+npm.cmd test               # las pruebas (src\*.test.ts)
+node src/demo-almacen.ts   # el ciclo completo contra datos\: guarda tareas y publica el tablero
+node src/demo-tablero.ts   # sólo la proyección del tablero, sin tocar el disco
+node herramientas/revisar-css.mjs   # llaves, tokens definidos y enlaces del HTML
 ```
+
+Y la comprobación de la interfaz, que necesita el servidor levantado en otra terminal:
+
+```powershell
+$env:BASE="http://127.0.0.1:3000"; node herramientas/probar-interfaz.mjs
+```
+
+Ejecuta `publico/app.js` **fuera del navegador** con un DOM de mentira, contra el servidor de verdad: crea una tarea, la mueve de columna, la borra y comprueba el resultado. Prueba la lógica y la integración; **no** el aspecto visual.
 
 Desde una sesión del agente, las pruebas necesitan `--experimental-test-isolation=none`: el runner de `node --test` lanza un subproceso y el sandbox lo bloquea con `EPERM`.
 
@@ -69,6 +89,34 @@ Express es la única dependencia de **runtime**; `typescript` y `@types/node` so
 
 ```powershell
 npm.cmd install --cache "$env:TEMP\npm-cache-dsh"
+```
+
+## Estructura
+
+```
+src\                          el programa
+  tipos.ts                    la forma de los datos
+  tarea.ts                    el dominio: la clase Tarea y sus invariantes
+  almacen.ts                  la persistencia, detras de una interfaz (hoy JSON)
+  api.ts                      el contrato de la API
+  servidor.ts                 HTTP y entrega de archivos
+  config.ts                   rutas y puerto, configurables
+  *.test.ts                   las pruebas (43)
+  demo-*.ts                   scripts para ver cosas a mano
+publico\                      lo que ve el navegador
+  index.html
+  app.js                      la interfaz, habla con la API y nada mas
+  estilos\                    el CSS, en cinco modulos con capas
+    tokens.css                solo variables
+    base.css                  normalizacion y tipografia base
+    layout.css                donde va cada cosa
+    componentes.css           como se ve cada pieza
+    utilidades.css            clases de un solo proposito
+herramientas\                 lo que verifica
+  probar-interfaz.mjs         ejecuta app.js fuera del navegador
+  revisar-css.mjs             llaves, tokens y enlaces
+datos\                        los datos (fuera de git)
+docs\                         decisiones, contrato, ruta de aprendizaje
 ```
 
 ## Contexto que no hay que perder de vista

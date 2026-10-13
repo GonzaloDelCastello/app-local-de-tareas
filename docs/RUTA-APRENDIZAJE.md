@@ -91,6 +91,23 @@ El servidor de `node:http` pasó de `src/servidor.mjs` a `src/servidor.ts` **sin
 
 **La lección de fondo:** el contrato es lo que permite que la interfaz y los agentes cambien sin romperse. Si el contrato no está escrito, cada consumidor adivina.
 
+### Hecha el 2026-10-13 (C18)
+
+El contrato escrito está en [API.md](API.md), y el código en `src/api.ts`. 22 pruebas propias, más la verificación con `curl.exe` contra el puerto.
+
+**Lo que apareció al hacerlo, que es lo que la etapa tenía que enseñar:**
+
+| Aparece | Por qué |
+|---|---|
+| **La validación de entrada es lo que los tipos NO pueden hacer** | `TareaJSON` describe un dato que *ya está bien*. Un cuerpo de petición es `unknown` hasta que alguien lo revisa, y ese alguien es código que corre: los tipos no existen en runtime |
+| **`enum` no, pero tampoco `null` como valor** | `tsc` rechazó que `"estado": null` pasara como válido. No era un error de sintaxis: era una inconsistencia semántica real que el tipo destapó. Obligó a separar la validación del estado de la del balde |
+| **`404` y `405` no son lo mismo** | `404` es "esa ruta no existe"; `405` es "existe, pero no con ese método". El `405` dice cuáles sí sirven, y por eso lleva el encabezado `Allow` |
+| **El error también es parte del contrato** | `400` con `detalles` que **nombran el campo**: quien llama tiene que poder corregir sin adivinar. Un `400` genérico obliga a leer el código del servidor |
+| **Un tope para el cuerpo** | Sin tope, un cuerpo enorme consume la memoria del proceso. Una tarea no llega ni cerca de 100 KB |
+| **Un error inesperado no puede tumbar el servidor** | El handler envuelve todo: si algo revienta, responde `500` y sigue atendiendo. El detalle queda en la consola, **no se filtra al cliente** |
+| **Separar `api.ts` de `servidor.ts`** | Uno sabe de HTTP (sockets, cuerpos, encabezados), el otro del dominio por HTTP (rutas, códigos, validación). Cambiar una regla del tablero no debería obligar a tocar el archivo que maneja sockets |
+| **Las trampas de la herramienta de prueba** | `curl.exe --data-raw '{"titulo":"..."}'` **pierde las comillas dobles** al pasar por PowerShell 5.1, y el servidor recibe un JSON roto. Y un archivo de cuerpo **con BOM** tampoco parsea. Las dos están documentadas en [API.md](API.md) |
+
 ---
 
 ## Etapa 4 — La interfaz
@@ -100,6 +117,42 @@ El servidor de `node:http` pasó de `src/servidor.mjs` a `src/servidor.ts` **sin
 **Se construye:** el tablero con columnas, y crear / mover / editar / borrar.
 
 **Se verifica:** recargando la página. Si el estado se pierde, la persistencia no estaba donde creías.
+
+### Hecha el 2026-10-13 (C19)
+
+`publico/index.html`, `publico/estilos.css` y `publico/app.js`. Cuatro columnas, crear, mover (arrastrando o con flechas), editar y borrar. Sin framework y sin una sola dependencia.
+
+**El problema central de la etapa, y cómo se resolvió:** el estado vive en **dos lugares** —el servidor y el DOM— y en algún momento van a discrepar. La decisión fue que **manda el servidor**: lo que se muestra es lo último que él devolvió, y después de cada cambio se vuelve a leer. Cuesta una ida y vuelta más; a cambio, no hay dos verdades que puedan separarse. Un cambio que se ve en pantalla y no se guardó es peor que uno que tarda medio segundo.
+
+**Lo que apareció, que es lo que la etapa tenía que enseñar:**
+
+| Aparece | Por qué |
+|---|---|
+| **`textContent` y nunca `innerHTML`** | El título lo escribe una persona. Con `innerHTML`, un título que contenga `<script>` se ejecuta en el navegador. Es la vía clásica de XSS, y desaparece por completo si los datos nunca se interpretan como código |
+| **La fecha de hoy es la del reloj de la pared, no la de UTC** | `new Date().toISOString().slice(0,10)` a las 22 de la Argentina devuelve **el día siguiente**. Es el mismo error que el cuartel general ya tenía documentado para los archivos, ahora en el navegador |
+| **`""` no es `null`** | La API pide `null` para "sin fecha". Un input vacío devuelve `""`, que es un `400`. La interfaz tiene que convertir; es trabajo del cliente, no del contrato |
+| **`replaceChildren()` reemplaza el array de hijos** | Guardar `tablero.hijos` en una variable y volver a leerla después miente: apunta al array viejo. Le pasó a la herramienta de verificación y dio un falso positivo |
+| **El drag & drop es un problema de estado, no de mouse** | `dragover` tiene que hacer `preventDefault()` o el navegador no deja soltar, y hay que recordar *qué* se está arrastrando. Por eso las flechas existen igual: son la operación confiable, el arrastre es la comodidad |
+| **El mapa explícito de estáticos** | El servidor no resuelve lo que pide el navegador contra el disco: busca en una lista. Así `../src/config.ts` no tiene por dónde entrar. (Verificado: los tres intentos de salir de `publico/` dan `404`) |
+
+**Y una cosa sobre la verificación, que es de la Etapa 5 pero apareció acá:** "abrir el navegador y fijarse" no es verificable ni repetible. Se escribió [herramientas/probar-interfaz.mjs](../herramientas/probar-interfaz.mjs), que ejecuta `app.js` **fuera del navegador**, con un DOM de mentira pero contra el servidor de verdad: carga el módulo, crea una tarea, la mueve de columna, la borra y comprueba el resultado. Nueve comprobaciones.
+
+**Su límite, dicho sin adornos:** prueba la lógica y la integración con la API, **no** el aspecto visual ni el arrastre real. Un DOM de mentira no es un navegador. Lo que sí garantiza es que el módulo carga sin errores, que las rutas existen y que las columnas se arman: los tres errores que hacen que una interfaz no arranque.
+
+### El sistema de diseño — 2026-10-13 (C20)
+
+El CSS pasó de un archivo a cinco módulos con **capas de cascada** (`@layer`), **tokens** en custom properties y **modo oscuro automático**. No se agregó ninguna dependencia.
+
+**El problema que resuelve `@layer`, que es el motivo de todo esto:** sin capas, para que una regla le gane a otra hay que pelear con **especificidad** — más clases, selectores más largos, `!important`, o depender del orden en que se cargaron los archivos. Esa pelea es la que hace que un CSS grande se vuelva imposible de tocar: nadie sabe por qué una regla no se aplica. Con capas, cada regla vive en un nivel declarado una sola vez, y la prioridad se decide ahí y no en cada selector.
+
+| Lo que apareció | Por qué importa |
+|---|---|
+| **Un valor, un lugar** | Si un color aparece dos veces en el proyecto, está mal. Los 46 tokens viven en un archivo que no tiene ni un selector |
+| **`var(--x)` mal escrito falla en silencio** | No hay error, no hay aviso: el color simplemente no se aplica. Por eso [revisar-css.mjs](../herramientas/revisar-css.mjs) comprueba que cada `var()` usado tenga su definición. Es un error que de otro modo sólo se ve mirando |
+| **`display: flex` pisa el `hidden` del navegador** | Un `[hidden]` con `display: flex` se ve igual. Hay que volver a ponerle `display: none`. Es un clásico |
+| **Ocultar acciones hasta el hover es una trampa** | Se ve prolijo y deja afuera a quien navega con el teclado. Los botones de la tarjeta quedan discretos, pero siempre visibles |
+| **`URL.pathname` con espacios en la ruta** | Devuelve `%20` y cualquier `readdir` falla. Se resuelve con `fileURLToPath`. Y pasó justo en este proyecto, que se llama "app local de tareas" |
+| **Servir estáticos no es `join(carpeta, loQuePideElNavegador)`** | Hay que resolver la ruta y comprobar que siga adentro. Buscar `".."` en el texto no alcanza: `%2e%2e%2f` también es `..` |
 
 ---
 
