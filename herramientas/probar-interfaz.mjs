@@ -171,41 +171,61 @@ afirmar(
 );
 afirmar(formularioNueva.titulo.value === "", "el formulario se limpio despues de crear");
 
-// Moverla: buscar el boton "->" de esa tarjeta y apretarlo.
-const tarjeta = tarjetas.find((t) => t.textContent.includes(titulo));
-const botones = tarjeta.porClase("botones")[0].hijos;
-afirmar(botones.length === 4, `la tarjeta tiene 4 botones (tiene ${botones.length})`);
+/**
+ * Mover y borrar, que necesita que la tarjeta exista.
+ *
+ * Es una funcion y no codigo suelto por un motivo concreto: si la tarea no se
+ * creo (por ejemplo, porque el servidor no tiene la API), el resto del script
+ * no tiene nada que medir. Sin esta guarda tiraba "Cannot read properties of
+ * undefined" y no llegaba NUNCA a las comprobaciones del final, que son las que
+ * dicen que salio mal. Un verificador que se cae en el peor momento no sirve.
+ */
+async function probarMovimientoYBorrado(tarjeta) {
+  const botones = tarjeta.porClase("botones")[0].hijos;
+  afirmar(botones.length === 4, `la tarjeta tiene 4 botones (tiene ${botones.length})`);
 
-// OJO: hay que releer tablero.hijos en cada medicion. dibujar() llama a
-// replaceChildren(), que REEMPLAZA el array de hijos: una referencia guardada
-// antes apunta al array viejo y miente. (Esto fue un falso positivo la primera
-// vez que se corrio.)
-function indiceDe(texto) {
-  return porId
-    .get("#tablero")
-    .hijos.findIndex((c) => c.porClase("tarjeta").some((t) => t.textContent.includes(texto)));
+  // OJO: hay que releer tablero.hijos en cada medicion. dibujar() llama a
+  // replaceChildren(), que REEMPLAZA el array de hijos: una referencia guardada
+  // antes apunta al array viejo y miente. (Fue un falso positivo la primera vez.)
+  function indiceDe(texto) {
+    return porId
+      .get("#tablero")
+      .hijos.findIndex((c) => c.porClase("tarjeta").some((t) => t.textContent.includes(texto)));
+  }
+
+  const indiceAntes = indiceDe(titulo);
+  await botones[1].disparar("click");
+  await new Promise((seguir) => setTimeout(seguir, 150));
+  const indiceDespues = indiceDe(titulo);
+  afirmar(
+    indiceDespues === indiceAntes + 1,
+    `la flecha -> la movio de columna (${indiceAntes} -> ${indiceDespues})`,
+  );
+
+  const tarjetaDespues = tablero.porClase("tarjeta").find((t) => t.textContent.includes(titulo));
+  await tarjetaDespues.porClase("botones")[0].hijos[3].disparar("click");
+  await new Promise((seguir) => setTimeout(seguir, 200));
+  afirmar(
+    !tablero.porClase("tarjeta").some((t) => t.textContent.includes(titulo)),
+    "el boton de borrar la saco del tablero",
+  );
 }
 
-const indiceAntes = indiceDe(titulo);
-await botones[1].disparar("click");
-await new Promise((seguir) => setTimeout(seguir, 150));
-const indiceDespues = indiceDe(titulo);
-afirmar(
-  indiceDespues === indiceAntes + 1,
-  `la flecha -> la movio de columna (${indiceAntes} -> ${indiceDespues})`,
-);
+const tarjeta = tarjetas.find((t) => t.textContent.includes(titulo));
+if (tarjeta === undefined) {
+  afirmar(false, "no se encontro la tarjeta creada: no se puede probar mover ni borrar");
+} else {
+  await probarMovimientoYBorrado(tarjeta);
+}
 
-// Borrarla, para no dejar basura.
-const tarjetaDespues = tablero.porClase("tarjeta").find((t) => t.textContent.includes(titulo));
-await tarjetaDespues.porClase("botones")[0].hijos[3].disparar("click");
-await new Promise((seguir) => setTimeout(seguir, 200));
-afirmar(
-  !tablero.porClase("tarjeta").some((t) => t.textContent.includes(titulo)),
-  "el boton de borrar la saco del tablero",
-);
-
-// El aviso de error tiene que quedar limpio si todo salio bien.
-afirmar(porId.get("#aviso").hidden === true, "no quedo ningun aviso de error visible");
+// El aviso de error: si quedo visible, se muestra QUE dice. El texto importa
+// tanto como el hecho de que aparezca.
+const aviso = porId.get("#aviso");
+if (aviso.hidden === true) {
+  afirmar(true, "no quedo ningun aviso de error visible");
+} else {
+  afirmar(false, `quedo un aviso visible: "${aviso.textContent}"`);
+}
 
 console.log("");
 if (fallos === 0) {

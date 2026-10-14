@@ -64,7 +64,23 @@ async function pedir(metodo, ruta, cuerpo) {
   }
 
   const texto = await respuesta.text();
-  const datos = texto === "" ? null : JSON.parse(texto);
+
+  let datos = null;
+  if (texto !== "") {
+    try {
+      datos = JSON.parse(texto);
+    } catch {
+      // Un cuerpo que no es JSON casi siempre significa una sola cosa: esta
+      // pagina NO la sirvio el servidor de la app. Pasa si se abre el HTML con
+      // doble clic, o con una extension tipo Live Server, que sirve archivos
+      // pero no tiene la API. Sin este mensaje, lo unico que se ve es
+      // "Unexpected token '<'", que no le dice nada a nadie.
+      throw new Error(
+        "El servidor contesto algo que no es JSON (" + respuesta.status + "). " +
+          "Esta corriendo el servidor? Se levanta con npm.cmd start y se abre http://127.0.0.1:3000",
+      );
+    }
+  }
 
   if (!respuesta.ok) {
     const partes = [datos?.error ?? `Error ${respuesta.status}`];

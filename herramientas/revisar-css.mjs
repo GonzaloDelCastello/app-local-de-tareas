@@ -93,7 +93,7 @@ const html = await readFile(join(PUBLICO, "index.html"), "utf8");
 const enlaces = [...html.matchAll(/<link[^>]+href="([^"]+\.css)"/g)].map((m) => m[1]);
 afirmar(enlaces.length === archivos.length, `el HTML enlaza ${enlaces.length} hojas y hay ${archivos.length} modulos`);
 for (const enlace of enlaces) {
-  const nombre = enlace.replace(/^\/estilos\//, "");
+  const nombre = enlace.replace(/^\.?\/?/, "").replace(/^estilos\//, "");
   afirmar(archivos.includes(nombre), `${enlace} existe`);
 }
 

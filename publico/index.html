@@ -15,11 +15,18 @@
        El orden de prioridad NO lo decide este orden: lo decide la declaracion
        de @layer que esta al principio de tokens.css. Por eso los modulos se
        pueden reordenar aca sin cambiar el resultado. -->
-  <link rel="stylesheet" href="/estilos/tokens.css">
-  <link rel="stylesheet" href="/estilos/base.css">
-  <link rel="stylesheet" href="/estilos/layout.css">
-  <link rel="stylesheet" href="/estilos/componentes.css">
-  <link rel="stylesheet" href="/estilos/utilidades.css">
+  <!-- Rutas RELATIVAS y no absolutas (/estilos/...). Los archivos viven al lado
+       de este HTML, asi que se piden desde donde esta el HTML. Con ruta
+       absoluta, servir la carpeta desde otra raiz -por ejemplo Live Server, que
+       sirve desde la raiz del proyecto y no desde publico/- hace que el
+       navegador los busque en el lugar equivocado y no cargue nada.
+       La API, en cambio, sigue con ruta absoluta: no es un archivo al lado del
+       HTML, es un servicio que da el servidor. -->
+  <link rel="stylesheet" href="estilos/tokens.css">
+  <link rel="stylesheet" href="estilos/base.css">
+  <link rel="stylesheet" href="estilos/layout.css">
+  <link rel="stylesheet" href="estilos/componentes.css">
+  <link rel="stylesheet" href="estilos/utilidades.css">
 </head>
 <body>
   <div class="app">
@@ -112,6 +119,6 @@
 
   <!-- type="module" permite usar await en el nivel de arriba del script, sin
        envolver todo en una funcion. Es el mismo tipo de modulo que usa Node. -->
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
