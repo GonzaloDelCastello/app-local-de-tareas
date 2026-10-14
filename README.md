@@ -21,9 +21,17 @@ Tablero de tareas tipo **Kanban** (la "vista de tablero" de Notion) que corre **
 
 ## Cómo se corre
 
+**La forma fácil: doble clic en `iniciar.cmd`.** Arranca el servidor y abre el navegador solo, en `http://127.0.0.1:3000`. La ventana que queda abierta **es** el servidor: `Ctrl+C` o cerrarla lo corta.
+
+O desde una terminal:
+
 ```powershell
 npm.cmd start
 ```
+
+Ojo: **`npm` a secas no funciona** en PowerShell — la política de ejecución bloquea `npm.ps1`, y hay que escribir `npm.cmd`. (Si preferís, `node src\servidor.ts` hace exactamente lo mismo: el script `start` es sólo eso.)
+
+`iniciar.cmd` va con **CRLF** y por eso `.gitattributes` tiene una excepción para `*.cmd`: la regla general del proyecto es LF, pero `cmd.exe` necesita CRLF, y con LF los bloques entre paréntesis se rompen justo en el camino que nadie prueba.
 
 Levanta el servidor en `http://127.0.0.1:3000`: sólo atiende conexiones de **este equipo**, no de la red local. **Abrí esa dirección en el navegador** y ahí está el tablero. `Ctrl+C` lo corta. Para otro puerto:
 

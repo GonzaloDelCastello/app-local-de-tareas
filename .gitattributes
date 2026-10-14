@@ -9,3 +9,14 @@
 # Con eol=lf la regla vale para cualquier maquina, sin depender de la
 # configuracion de git de cada una.
 * text=auto eol=lf
+
+# Los .cmd y .bat son la EXCEPCION a la regla de arriba.
+#
+# cmd.exe necesita CRLF. Con LF, los bloques entre parentesis y las etiquetas se
+# rompen, y el sintoma es de los peores: el script anda hasta que toma el camino
+# que nadie probo (por ejemplo, el mensaje de "falta Node.js").
+#
+# Sin estas dos lineas, la regla "* text=auto eol=lf" le pondria LF a
+# iniciar.cmd en cada checkout, y el lanzador quedaria roto en el disco.
+*.cmd text eol=crlf
+*.bat text eol=crlf
