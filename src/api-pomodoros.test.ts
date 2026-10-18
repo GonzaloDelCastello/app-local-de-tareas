@@ -12,8 +12,8 @@ import { join } from "node:path";
 
 import { crearAlmacenDePomodoros, crearAlmacenDeTareas } from "./almacen.ts";
 import type { Almacen } from "./almacen.ts";
-import { manejarApiPomodoros } from "./api.ts";
-import type { RespuestaApi } from "./api.ts";
+import { manejarApiPomodoros } from "./api-pomodoros.ts";
+import type { RespuestaApi } from "./api-comun.ts";
 import { Pomodoro } from "./pomodoro.ts";
 import { Tarea } from "./tarea.ts";
 

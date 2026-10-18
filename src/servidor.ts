@@ -15,7 +15,8 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, join, resolve, sep } from "node:path";
 
 import { crearAlmacenDePomodoros, crearAlmacenDeTareas, publicarTablero } from "./almacen.ts";
-import { manejarApi, manejarApiPomodoros } from "./api.ts";
+import { manejarApi } from "./api.ts";
+import { manejarApiPomodoros } from "./api-pomodoros.ts";
 // La configuracion sale de config.ts y no esta repetida aca: un solo lugar
 // donde mirar cuando algo cambia de valor (decision C11).
 import { ARCHIVO_POMODOROS, ARCHIVO_TABLERO, ARCHIVO_TAREAS, DIRECCION, PUERTO, RAIZ_PROYECTO, hoy } from "./config.ts";

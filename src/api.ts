@@ -1,4 +1,5 @@
-// El contrato de la API (Etapa 3).
+// El contrato de las TAREAS (Etapa 3). Los pomodoros viven en api-pomodoros.ts,
+// y lo que comparten los dos, en api-comun.ts.
 //
 // POR QUE ESTA SEPARADO DE servidor.ts
 //
@@ -19,30 +20,27 @@
 // romperse. Si no esta escrito, cada consumidor adivina.
 
 import type { Almacen } from "./almacen.ts";
-import { Pomodoro } from "./pomodoro.ts";
-import type { EstadoPomodoro, PomodoroJSON } from "./pomodoro.ts";
+import {
+  booleano,
+  comoObjeto,
+  enLista,
+  enListaSinNull,
+  enteroOpcional,
+  fechaOpcional,
+  listaDeTextos,
+  metodoNoPermitido,
+  noEncontrado,
+  noValido,
+  texto,
+} from "./api-comun.ts";
+import type { RespuestaApi } from "./api-comun.ts";
+import { SolicitudInvalida } from "./api-comun.ts";
 import { Tarea } from "./tarea.ts";
 import { BALDES, DIMENSIONES, ESTADOS } from "./tipos.ts";
 import type { Balde, DatosNuevaTarea, Dimension, Estado } from "./tipos.ts";
 
-/** Lo que la API devuelve. El servidor lo traduce a HTTP. */
-export interface RespuestaApi {
-  codigo: number;
-  /** null en las respuestas sin cuerpo (204). */
-  cuerpo: unknown;
-  encabezados?: Record<string, string>;
-  /**
-   * true si la operacion cambio los datos. El servidor lo usa para regenerar la
-   * vista derivada que leen los agentes: la API decide, el servidor hace el
-   * efecto. Un GET nunca lo pone en true.
-   */
-  cambio?: boolean;
-}
-
 /** `/api/tareas` y `/api/tareas/<id>`. Nada mas profundo: eso es 404. */
 const RUTA_TAREAS = /^\/api\/tareas(?:\/([^/]+))?$/;
-
-const FORMATO_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 const METODOS_EN_TAREAS = "GET, POST";
 const METODOS_EN_UNA_TAREA = "GET, PATCH, DELETE";
@@ -55,165 +53,6 @@ const METODOS_EN_UNA_TAREA = "GET, PATCH, DELETE";
  * Aceptarlos en silencio seria peor: el cliente creeria que los esta fijando.
  */
 const CAMPOS_DEL_SERVIDOR = ["id", "creadaEl", "actualizadaEl", "cerradaEl"];
-
-/** El error que se convierte en 400. */
-class SolicitudInvalida extends Error {
-  readonly problemas: string[];
-
-  constructor(problemas: string[]) {
-    super(problemas.join("; "));
-    this.problemas = problemas;
-  }
-}
-
-function error(codigo: number, mensaje: string, detalles?: string[]): RespuestaApi {
-  const cuerpo: Record<string, unknown> = { error: mensaje };
-  if (detalles !== undefined && detalles.length > 0) cuerpo.detalles = detalles;
-  return { codigo, cuerpo };
-}
-
-function metodoNoPermitido(permitidos: string): RespuestaApi {
-  return {
-    codigo: 405,
-    cuerpo: { error: `Ese metodo no existe para esta ruta. Los validos son: ${permitidos}` },
-    encabezados: { Allow: permitidos },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Lectura y validacion del cuerpo
-//
-// Esto es lo que los tipos NO pueden hacer. `TareaJSON` describe la forma de un
-// dato que ya es correcto; no dice nada de lo que llega de afuera. Un cuerpo de
-// peticion es `unknown` hasta que alguien lo revisa, y ese alguien es este.
-// ---------------------------------------------------------------------------
-
-function comoObjeto(cuerpoCrudo: string): Record<string, unknown> {
-  if (cuerpoCrudo.trim() === "") {
-    throw new SolicitudInvalida(["el cuerpo de la peticion esta vacio"]);
-  }
-  let crudo: unknown;
-  try {
-    crudo = JSON.parse(cuerpoCrudo);
-  } catch {
-    throw new SolicitudInvalida(["el cuerpo no es JSON valido"]);
-  }
-  if (typeof crudo !== "object" || crudo === null || Array.isArray(crudo)) {
-    throw new SolicitudInvalida(["el cuerpo tiene que ser un objeto JSON"]);
-  }
-  return crudo as Record<string, unknown>;
-}
-
-function texto(
-  crudo: Record<string, unknown>,
-  campo: string,
-  problemas: string[],
-): string | undefined {
-  const valor = crudo[campo];
-  if (valor === undefined) return undefined;
-  if (typeof valor !== "string") {
-    problemas.push(`"${campo}" tiene que ser texto`);
-    return undefined;
-  }
-  return valor;
-}
-
-function booleano(
-  crudo: Record<string, unknown>,
-  campo: string,
-  problemas: string[],
-): boolean | undefined {
-  const valor = crudo[campo];
-  if (valor === undefined) return undefined;
-  if (typeof valor !== "boolean") {
-    problemas.push(`"${campo}" tiene que ser true o false`);
-    return undefined;
-  }
-  return valor;
-}
-
-function fechaOpcional(
-  crudo: Record<string, unknown>,
-  campo: string,
-  problemas: string[],
-): string | null | undefined {
-  const valor = crudo[campo];
-  if (valor === undefined) return undefined;
-  if (valor === null) return null;
-  if (typeof valor !== "string" || !FORMATO_FECHA.test(valor)) {
-    problemas.push(`"${campo}" tiene que ser null o una fecha AAAA-MM-DD`);
-    return undefined;
-  }
-  return valor;
-}
-
-function enteroOpcional(
-  crudo: Record<string, unknown>,
-  campo: string,
-  problemas: string[],
-): number | null | undefined {
-  const valor = crudo[campo];
-  if (valor === undefined) return undefined;
-  if (valor === null) return null;
-  if (typeof valor !== "number" || !Number.isInteger(valor) || valor <= 0) {
-    problemas.push(`"${campo}" tiene que ser null o un entero mayor que 0`);
-    return undefined;
-  }
-  return valor;
-}
-
-function enLista<T extends string>(
-  crudo: Record<string, unknown>,
-  campo: string,
-  validos: readonly T[],
-  problemas: string[],
-): T | null | undefined {
-  const valor = crudo[campo];
-  if (valor === undefined) return undefined;
-  if (valor === null) return null;
-  if (typeof valor !== "string" || !validos.includes(valor as T)) {
-    problemas.push(`"${campo}" tiene que ser null o uno de: ${validos.join(", ")}`);
-    return undefined;
-  }
-  return valor as T;
-}
-
-function listaDeTextos(
-  crudo: Record<string, unknown>,
-  campo: string,
-  problemas: string[],
-): string[] | undefined {
-  const valor = crudo[campo];
-  if (valor === undefined) return undefined;
-  if (!Array.isArray(valor) || valor.some((e) => typeof e !== "string")) {
-    problemas.push(`"${campo}" tiene que ser una lista de textos`);
-    return undefined;
-  }
-  return valor as string[];
-}
-
-/**
- * Igual que `enLista`, pero `null` NO es un valor valido.
- *
- * Para el estado no existe el "sin valor": una tarea siempre esta en alguno de
- * los cuatro. Aceptar null ahi seria aceptar un estado que no existe. El error
- * de tipos que obligo a separar esta funcion fue real: `null` se estaba colando
- * como si fuera un estado valido.
- */
-function enListaSinNull<T extends string>(
-  crudo: Record<string, unknown>,
-  campo: string,
-  validos: readonly T[],
-  problemas: string[],
-): T | undefined {
-  const valor = crudo[campo];
-  if (valor === undefined) return undefined;
-  if (typeof valor !== "string" || !validos.includes(valor as T)) {
-    problemas.push(`"${campo}" tiene que ser uno de: ${validos.join(", ")}`);
-    return undefined;
-  }
-  return valor as T;
-}
 
 interface CamposLeidos {
   titulo?: string;
@@ -296,7 +135,7 @@ async function listar(almacen: Almacen<Tarea>): Promise<RespuestaApi> {
 
 async function verUna(id: string, almacen: Almacen<Tarea>): Promise<RespuestaApi> {
   const tarea = await almacen.buscar(id);
-  if (tarea === null) return error(404, `No existe la tarea ${id}`);
+  if (tarea === null) return noEncontrado(`No existe la tarea ${id}`);
   return { codigo: 200, cuerpo: tarea.aJSON() };
 }
 
@@ -353,7 +192,7 @@ async function modificar(
   hoy: string,
 ): Promise<RespuestaApi> {
   const tarea = await almacen.buscar(id);
-  if (tarea === null) return error(404, `No existe la tarea ${id}`);
+  if (tarea === null) return noEncontrado(`No existe la tarea ${id}`);
 
   const campos = leerCampos(comoObjeto(cuerpoCrudo), true);
 
@@ -393,7 +232,7 @@ async function eliminar(id: string, almacen: Almacen<Tarea>): Promise<RespuestaA
   // 404 y no 204: borrar algo que no existe no es lo mismo que borrarlo, y
   // quien llama merece enterarse. (Es discutible: DELETE es idempotente para
   // buena parte de la bibliografia. Se elige el aviso.)
-  if (tarea === null) return error(404, `No existe la tarea ${id}`);
+  if (tarea === null) return noEncontrado(`No existe la tarea ${id}`);
 
   await almacen.eliminar(id);
   return { codigo: 204, cuerpo: null, cambio: true };
@@ -404,10 +243,10 @@ async function eliminar(id: string, almacen: Almacen<Tarea>): Promise<RespuestaA
 // ---------------------------------------------------------------------------
 
 /**
- * Atiende las rutas de la API.
+ * Atiende las rutas de tareas.
  *
- * Devuelve `null` si la ruta no es de la API: asi el servidor puede seguir con
- * las suyas (`/`, `/api/salud`) sin que esta capa sepa que existen.
+ * Devuelve `null` si la ruta no es de este recurso: asi el servidor prueba con
+ * el siguiente sin que esta capa sepa que existen los demas.
  */
 export async function manejarApi(
   metodo: string,
@@ -434,212 +273,7 @@ export async function manejarApi(
     if (metodo === "DELETE") return await eliminar(id, almacen);
     return metodoNoPermitido(METODOS_EN_UNA_TAREA);
   } catch (falla) {
-    if (falla instanceof SolicitudInvalida) {
-      return error(400, "La solicitud no es valida", falla.problemas);
-    }
-    throw falla;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Pomodoros (C12 y C22)
-//
-// Va en el mismo archivo que las tareas y no en uno aparte porque reusa todo lo
-// de arriba: los validadores de cuerpo, la forma de los errores y los codigos.
-// Si el archivo sigue creciendo, el paso siguiente es extraer lo comun
-// (RespuestaApi, SolicitudInvalida y los validadores) a un modulo propio.
-// ---------------------------------------------------------------------------
-
-const RUTA_POMODOROS = /^\/api\/pomodoros(?:\/([^/]+))?$/;
-
-const METODOS_EN_POMODOROS = "GET, POST";
-const METODOS_EN_UN_POMODORO = "GET, PATCH";
-
-/**
- * Un pomodoro con lo que se deriva del reloj, listo para el cliente.
- *
- * El estado, los segundos que faltan y lo que duro se calculan aca y viajan en
- * la respuesta. Si los calculara la interfaz por su cuenta, la regla de "cuando
- * esta cumplido" estaria escrita en dos lugares y podria divergir.
- *
- * Lo unico que la interfaz resta por su lado es `finPrevisto - ahora`, para
- * mover el reloj cada segundo sin pedirle nada al servidor. Restar dos
- * instantes no es una regla: es aritmetica.
- */
-export interface PomodoroVista extends PomodoroJSON {
-  finPrevisto: string;
-  estado: EstadoPomodoro;
-  segundosRestantes: number;
-  duracionRealMin: number;
-}
-
-function verPomodoro(pomodoro: Pomodoro, ahora: Date): PomodoroVista {
-  return {
-    ...pomodoro.aJSON(),
-    finPrevisto: pomodoro.finPrevisto().toISOString(),
-    estado: pomodoro.estado(ahora),
-    segundosRestantes: pomodoro.segundosRestantes(ahora),
-    duracionRealMin: pomodoro.duracionRealMin(ahora),
-  };
-}
-
-/**
- * El que esta corriendo AHORA, o null.
- *
- * Se busca entre los que nadie cerro **y** cuyo fin previsto todavia no paso.
- * Un pomodoro que quedo abierto de hace tres horas no esta corriendo: se
- * cumplio y nadie lo cerro. Si se devolviera igual, la interfaz mostraria un
- * reloj en negativo contando hacia arriba.
- */
-async function pomodoroEnCurso(almacen: Almacen<Pomodoro>, ahora: Date): Promise<Pomodoro | null> {
-  const abiertos = (await almacen.listar()).filter((p) => p.terminadoEl === null);
-  const corriendo = abiertos.filter((p) => p.estado(ahora) === "en-curso");
-  if (corriendo.length === 0) return null;
-  // Si hubiera mas de uno, el mas reciente. No deberia pasar: POST lo impide.
-  corriendo.sort((a, b) => Date.parse(b.iniciadoEl) - Date.parse(a.iniciadoEl));
-  return corriendo[0] ?? null;
-}
-
-async function listarPomodoros(almacen: Almacen<Pomodoro>, ahora: Date): Promise<RespuestaApi> {
-  const pomodoros = await almacen.listar();
-  const vistas = pomodoros
-    .map((p) => verPomodoro(p, ahora))
-    .sort((a, b) => Date.parse(b.iniciadoEl) - Date.parse(a.iniciadoEl));
-  return { codigo: 200, cuerpo: { pomodoros: vistas, total: vistas.length } };
-}
-
-async function crearPomodoro(
-  cuerpoCrudo: string,
-  almacen: Almacen<Pomodoro>,
-  buscarTarea: (id: string) => Promise<Tarea | null>,
-  ahora: Date,
-): Promise<RespuestaApi> {
-  const crudo = comoObjeto(cuerpoCrudo);
-  const problemas: string[] = [];
-
-  const tareaId = texto(crudo, "tareaId", problemas);
-  const nota = texto(crudo, "nota", problemas);
-  const duracion = enteroOpcional(crudo, "duracionMin", problemas);
-
-  for (const campo of ["id", "iniciadoEl", "terminadoEl"]) {
-    if (campo in crudo) problemas.push(`"${campo}" no se puede fijar desde afuera: lo decide el servidor`);
-  }
-  if (duracion === null) problemas.push('"duracionMin" no puede ser null: un pomodoro dura algo');
-  if (problemas.length > 0) throw new SolicitudInvalida(problemas);
-
-  // La tarea tiene que existir. Un pomodoro apuntando a una tarea que no esta
-  // es un dato roto que despues nadie puede arreglar.
-  if (tareaId !== undefined) {
-    const tarea = await buscarTarea(tareaId);
-    if (tarea === null) throw new SolicitudInvalida([`no existe la tarea ${tareaId}`]);
-  }
-
-  // Regla dura: un solo pomodoro a la vez. Dos relojes corriendo no significan
-  // nada, y el registro quedaria con dos bloques abiertos superpuestos.
-  const yaCorriendo = await pomodoroEnCurso(almacen, ahora);
-  if (yaCorriendo !== null) {
-    return {
-      codigo: 409,
-      cuerpo: {
-        error: `Ya hay un pomodoro en curso (${yaCorriendo.id})`,
-        pomodoro: verPomodoro(yaCorriendo, ahora),
-      },
-    };
-  }
-
-  const id = await almacen.siguienteId();
-  const pomodoro = Pomodoro.nuevo(
-    // `?? undefined` porque el tipo no admite null: si vino null ya se rechazo
-    // mas arriba con un 400. Es el mismo caso que `estado: null` en las tareas,
-    // y lo volvio a marcar el sistema de tipos.
-    { tareaId: tareaId ?? null, duracionMin: duracion ?? undefined, nota },
-    id,
-    ahora,
-  );
-  await almacen.guardar(pomodoro);
-
-  return {
-    codigo: 201,
-    cuerpo: verPomodoro(pomodoro, ahora),
-    encabezados: { Location: `/api/pomodoros/${pomodoro.id}` },
-    cambio: true,
-  };
-}
-
-async function verUnPomodoro(id: string, almacen: Almacen<Pomodoro>, ahora: Date): Promise<RespuestaApi> {
-  // "en-curso" es una ruta, no un id. Se resuelve antes de buscar.
-  if (id === "en-curso") {
-    const corriendo = await pomodoroEnCurso(almacen, ahora);
-    return { codigo: 200, cuerpo: { pomodoro: corriendo === null ? null : verPomodoro(corriendo, ahora) } };
-  }
-
-  const pomodoro = await almacen.buscar(id);
-  if (pomodoro === null) return error(404, `No existe el pomodoro ${id}`);
-  return { codigo: 200, cuerpo: verPomodoro(pomodoro, ahora) };
-}
-
-async function cerrarPomodoro(
-  id: string,
-  cuerpoCrudo: string,
-  almacen: Almacen<Pomodoro>,
-  ahora: Date,
-): Promise<RespuestaApi> {
-  const pomodoro = await almacen.buscar(id);
-  if (pomodoro === null) return error(404, `No existe el pomodoro ${id}`);
-
-  const crudo = comoObjeto(cuerpoCrudo);
-  const problemas: string[] = [];
-  const estado = texto(crudo, "estado", problemas);
-  const nota = texto(crudo, "nota", problemas);
-  if (problemas.length > 0) throw new SolicitudInvalida(problemas);
-
-  if (estado !== undefined && estado !== "terminado") {
-    throw new SolicitudInvalida(['"estado" solo puede ser "terminado": un pomodoro no se reabre']);
-  }
-
-  if (nota !== undefined) pomodoro.nota = nota;
-  if (estado === "terminado") pomodoro.cerrar(ahora);
-
-  await almacen.guardar(pomodoro);
-  return { codigo: 200, cuerpo: verPomodoro(pomodoro, ahora), cambio: true };
-}
-
-/**
- * Atiende las rutas de pomodoros.
- *
- * `buscarTarea` entra como funcion y no como el almacen entero: lo unico que
- * esta capa necesita de las tareas es poder preguntar si una existe. Pedir la
- * capacidad justa y no el objeto completo hace que sea mas facil de probar y
- * que no pueda tocar nada que no le corresponde.
- */
-export async function manejarApiPomodoros(
-  metodo: string,
-  ruta: string,
-  cuerpoCrudo: string,
-  almacen: Almacen<Pomodoro>,
-  buscarTarea: (id: string) => Promise<Tarea | null>,
-  ahora: Date,
-): Promise<RespuestaApi | null> {
-  const coincidencia = RUTA_POMODOROS.exec(ruta);
-  if (coincidencia === null) return null;
-
-  const capturado = coincidencia[1];
-  const id = capturado === undefined ? null : decodeURIComponent(capturado);
-
-  try {
-    if (id === null) {
-      if (metodo === "GET") return await listarPomodoros(almacen, ahora);
-      if (metodo === "POST") return await crearPomodoro(cuerpoCrudo, almacen, buscarTarea, ahora);
-      return metodoNoPermitido(METODOS_EN_POMODOROS);
-    }
-
-    if (metodo === "GET") return await verUnPomodoro(id, almacen, ahora);
-    if (metodo === "PATCH") return await cerrarPomodoro(id, cuerpoCrudo, almacen, ahora);
-    return metodoNoPermitido(METODOS_EN_UN_POMODORO);
-  } catch (falla) {
-    if (falla instanceof SolicitudInvalida) {
-      return error(400, "La solicitud no es valida", falla.problemas);
-    }
+    if (falla instanceof SolicitudInvalida) return noValido(falla.problemas);
     throw falla;
   }
 }

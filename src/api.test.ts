@@ -15,7 +15,7 @@ import { crearAlmacenDeTareas } from "./almacen.ts";
 import { Tarea } from "./tarea.ts";
 import type { Almacen } from "./almacen.ts";
 import { manejarApi } from "./api.ts";
-import type { RespuestaApi } from "./api.ts";
+import type { RespuestaApi } from "./api-comun.ts";
 
 const HOY = "2026-10-13";
 
