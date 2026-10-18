@@ -3,39 +3,80 @@
 // POR QUE UNA INTERFAZ Y NO UN ARCHIVO SUELTO
 //
 // C7 dice: JSON primero, SQLite despues, detras de la misma interfaz. Lo que
-// hace que ese cambio sea barato no es el formato, es esto: el resto del
-// programa depende de `Almacen`, no de `AlmacenJSON`. El dia que exista
-// `crearAlmacenSQLite()`, el servidor cambia UNA linea y nada mas.
+// hace barato ese cambio no es el formato, es esto: el resto del programa
+// depende de `Almacen`, no de `AlmacenJSON`.
+//
+// POR QUE ES GENERICA (C23)
+//
+// Cuando aparecieron los pomodoros hubo que elegir: un segundo almacen para
+// ellos, o generalizar este. Se generalizo, porque lo dificil de esta capa no
+// es "guardar tareas": es escribir sin romper el archivo (atomicamente) y
+// sobrevivir al renombre que Windows rechaza cuando el antivirus tiene el
+// archivo abierto. Eso es igual para todo lo que se guarde, y no tiene sentido
+// escribirlo dos veces ni arreglarlo en dos lugares.
+//
+// Lo unico que cambia entre una cosa y otra es COMO se convierte el objeto a su
+// forma guardada. Eso entra por parametro: es el `Conversor<T>`.
 //
 // Los metodos son `async` aunque leer un archivo podria ser sincronico. El
 // motivo es que la implementacion de SQLite (y cualquier otra que venga
-// despues: una base remota, un archivo en red) no tiene por que serlo. Si la
-// interfaz fuera sincronica, cambiar la implementacion obligaria a cambiar a
-// todos los que la usan.
+// despues: una base remota, un archivo en red) no tiene por que serlo.
 
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { Tarea } from "./tarea.ts";
-import { proyectarTablero } from "./tarea.ts";
+import { fechaEnZona } from "./config.ts";
+import { Pomodoro, proyectarPomodoros } from "./pomodoro.ts";
+import { Tarea, proyectarTablero } from "./tarea.ts";
+
+/** Lo minimo que tiene que tener algo para poder guardarse: un `id` propio. */
+export interface ConId {
+  readonly id: string;
+}
 
 /**
- * Lo que se puede hacer con las tareas guardadas.
+ * Lo que se puede hacer con lo que este guardado.
  *
- * Esta es la frontera: quien use el almacen no sabe si los datos estan en un
- * JSON, en SQLite o en un archivo de texto.
+ * Esta es la frontera: quien la use no sabe si los datos estan en un JSON, en
+ * SQLite o en un archivo de texto.
  */
-export interface Almacen {
-  /** Todas las tareas. Lista vacia si todavia no hay ninguna. */
-  listar(): Promise<Tarea[]>;
-  /** La tarea con ese id, o null. */
-  buscar(id: string): Promise<Tarea | null>;
-  /** Agrega, o reemplaza si ya existe una con el mismo id. */
-  guardar(tarea: Tarea): Promise<void>;
-  /** La saca. Si no existe, no hace nada. */
+export interface Almacen<T extends ConId> {
+  /** Todo lo guardado. Lista vacia si todavia no hay nada. */
+  listar(): Promise<T[]>;
+  /** El elemento con ese id, o null. */
+  buscar(id: string): Promise<T | null>;
+  /** Agrega, o reemplaza si ya existe uno con el mismo id. */
+  guardar(elemento: T): Promise<void>;
+  /** Lo saca. Si no existe, no hace nada. */
   eliminar(id: string): Promise<void>;
-  /** El proximo id libre, con el formato t-0001. */
+  /** El proximo id libre, con el formato <prefijo>-0001. */
   siguienteId(): Promise<string>;
+}
+
+/**
+ * Como se pasa de la forma guardada al objeto y al reves.
+ *
+ * Es lo unico que distingue un almacen de tareas de uno de pomodoros, y es lo
+ * que permite que el resto de la clase sea generico.
+ */
+export interface Conversor<T> {
+  /** Reconstruye el objeto desde lo que devolvio JSON.parse. Tiene que validar. */
+  desdeJSON(dato: unknown): T;
+  /** La forma que se guarda. */
+  aJSON(elemento: T): unknown;
+}
+
+/** Lo que hace falta para armar un almacen en JSON. */
+export interface ConfiguracionAlmacen<T extends ConId> {
+  ruta: string;
+  conversor: Conversor<T>;
+  /** La primera letra del id: "t" para tareas, "p" para pomodoros. */
+  prefijoId: string;
+  /**
+   * Como se llama lo que se guarda, en singular, para los mensajes de error.
+   * Los plurales se arman agregando "s": tarea/tareas, pomodoro/pomodoros.
+   */
+  nombre: string;
 }
 
 /** `ENOENT` es "el archivo no existe". La primera vez es normal, no un error. */
@@ -90,22 +131,28 @@ export async function renombrarConReintentos(
   }
 }
 
-class AlmacenJSON implements Almacen {
+class AlmacenJSON<T extends ConId> implements Almacen<T> {
   private readonly ruta: string;
+  private readonly conversor: Conversor<T>;
+  private readonly prefijoId: string;
+  private readonly nombre: string;
 
-  constructor(ruta: string) {
-    this.ruta = ruta;
+  constructor(configuracion: ConfiguracionAlmacen<T>) {
+    this.ruta = configuracion.ruta;
+    this.conversor = configuracion.conversor;
+    this.prefijoId = configuracion.prefijoId;
+    this.nombre = configuracion.nombre;
   }
 
   /**
    * Lee y convierte TODO, en cada operacion.
    *
-   * Es simple y para cientos de tareas alcanza de sobra. Tiene un limite
-   * honesto: con miles de tareas, guardar una sola reescribe el archivo entero.
-   * Cuando eso moleste, es exactamente el momento de pasar a SQLite, y el
-   * cambio queda encerrado en esta clase.
+   * Es simple y para cientos de elementos alcanza de sobra. Tiene un limite
+   * honesto: con miles, guardar uno solo reescribe el archivo entero. Cuando
+   * eso moleste, es exactamente el momento de pasar a SQLite, y el cambio queda
+   * encerrado en esta clase.
    */
-  private async leer(): Promise<Tarea[]> {
+  private async leer(): Promise<T[]> {
     let texto: string;
     try {
       // 'utf8' explicito: sin esto llega un Buffer, no texto.
@@ -121,22 +168,22 @@ class AlmacenJSON implements Almacen {
     try {
       crudo = JSON.parse(texto);
     } catch {
-      throw new Error(`El archivo de tareas no es JSON valido: ${this.ruta}`);
+      throw new Error(`El archivo de ${this.nombre}s no es JSON valido: ${this.ruta}`);
     }
 
     if (!Array.isArray(crudo)) {
-      throw new Error(`El archivo de tareas tiene que contener una lista: ${this.ruta}`);
+      throw new Error(`El archivo de ${this.nombre}s tiene que contener una lista: ${this.ruta}`);
     }
 
-    // Si UNA tarea esta mal, se corta con el numero de posicion. La alternativa
-    // —saltearla y seguir— perderia datos en silencio, que es peor que fallar
+    // Si UNO esta mal, se corta con el numero de posicion. La alternativa
+    // —saltearlo y seguir— perderia datos en silencio, que es peor que fallar
     // ruidosamente.
     return crudo.map((dato, posicion) => {
       try {
-        return Tarea.desdeJSON(dato);
+        return this.conversor.desdeJSON(dato);
       } catch (error) {
         const motivo = error instanceof Error ? error.message : String(error);
-        throw new Error(`La tarea en la posicion ${posicion} de ${this.ruta} no es valida: ${motivo}`);
+        throw new Error(`El ${this.nombre} en la posicion ${posicion} de ${this.ruta} no es valido: ${motivo}`);
       }
     });
   }
@@ -150,38 +197,38 @@ class AlmacenJSON implements Almacen {
    * el archivo bueno, en cambio, deja un archivo cortado si el proceso se corta
    * justo en el medio.
    */
-  private async escribir(tareas: Tarea[]): Promise<void> {
+  private async escribir(elementos: T[]): Promise<void> {
     await mkdir(dirname(this.ruta), { recursive: true });
-    const contenido = `${JSON.stringify(tareas.map((t) => t.aJSON()), null, 2)}\n`;
+    const contenido = `${JSON.stringify(elementos.map((e) => this.conversor.aJSON(e)), null, 2)}\n`;
     const temporal = `${this.ruta}.tmp`;
     await writeFile(temporal, contenido, "utf8");
     // Reintenta: ver el comentario de renombrarConReintentos.
     await renombrarConReintentos(temporal, this.ruta);
   }
 
-  async listar(): Promise<Tarea[]> {
+  async listar(): Promise<T[]> {
     return await this.leer();
   }
 
-  async buscar(id: string): Promise<Tarea | null> {
-    const tareas = await this.leer();
-    return tareas.find((t) => t.id === id) ?? null;
+  async buscar(id: string): Promise<T | null> {
+    const elementos = await this.leer();
+    return elementos.find((e) => e.id === id) ?? null;
   }
 
-  async guardar(tarea: Tarea): Promise<void> {
-    const tareas = await this.leer();
-    const posicion = tareas.findIndex((t) => t.id === tarea.id);
+  async guardar(elemento: T): Promise<void> {
+    const elementos = await this.leer();
+    const posicion = elementos.findIndex((e) => e.id === elemento.id);
     if (posicion >= 0) {
-      tareas[posicion] = tarea;
+      elementos[posicion] = elemento;
     } else {
-      tareas.push(tarea);
+      elementos.push(elemento);
     }
-    await this.escribir(tareas);
+    await this.escribir(elementos);
   }
 
   async eliminar(id: string): Promise<void> {
-    const tareas = await this.leer();
-    await this.escribir(tareas.filter((t) => t.id !== id));
+    const elementos = await this.leer();
+    await this.escribir(elementos.filter((e) => e.id !== id));
   }
 
   /**
@@ -192,19 +239,37 @@ class AlmacenJSON implements Almacen {
    * fuentes de verdad sobre cual es el ultimo id.
    */
   async siguienteId(): Promise<string> {
-    const tareas = await this.leer();
     let maximo = 0;
-    for (const tarea of tareas) {
-      const numero = Number.parseInt(tarea.id.replace(/^t-/, ""), 10);
+    for (const elemento of await this.leer()) {
+      // Cualquier id que no sea <prefijo>-<numero> se ignora en vez de romper.
+      const numero = Number.parseInt(elemento.id.replace(/^[a-z]-/, ""), 10);
       if (Number.isInteger(numero) && numero > maximo) maximo = numero;
     }
-    return `t-${String(maximo + 1).padStart(4, "0")}`;
+    return `${this.prefijoId}-${String(maximo + 1).padStart(4, "0")}`;
   }
 }
 
-/** La implementacion de hoy. Manana: `crearAlmacenSQLite(rutaBase)`. */
-export function crearAlmacenJSON(rutaArchivo: string): Almacen {
-  return new AlmacenJSON(rutaArchivo);
+/** La implementacion de hoy. Manana: `crearAlmacenSQLite(configuracion)`. */
+export function crearAlmacenJSON<T extends ConId>(configuracion: ConfiguracionAlmacen<T>): Almacen<T> {
+  return new AlmacenJSON(configuracion);
+}
+
+/**
+ * El almacen de tareas, armado.
+ *
+ * Existe para no repetir la configuracion en cada lugar que lo necesita: el
+ * prefijo y el conversor de tareas se escriben una sola vez.
+ */
+export function crearAlmacenDeTareas(rutaArchivo: string): Almacen<Tarea> {
+  return crearAlmacenJSON({
+    ruta: rutaArchivo,
+    conversor: {
+      desdeJSON: (dato) => Tarea.desdeJSON(dato),
+      aJSON: (tarea) => tarea.aJSON(),
+    },
+    prefijoId: "t",
+    nombre: "tarea",
+  });
 }
 
 /**
@@ -215,13 +280,44 @@ export function crearAlmacenJSON(rutaArchivo: string): Almacen {
  * vez, asi que no se edita a mano.
  */
 export async function publicarTablero(
-  almacen: Almacen,
+  almacenTareas: Almacen<Tarea>,
+  almacenPomodoros: Almacen<Pomodoro>,
   rutaTablero: string,
-  generadoEl: string,
+  ahora: Date,
 ): Promise<string> {
-  const tareas = await almacen.listar();
-  const contenido = proyectarTablero(tareas, generadoEl);
+  // La fecha se calcula aca adentro y no se recibe: asi no puede pasar que la
+  // fecha y el reloj digan cosas distintas.
+  const fecha = fechaEnZona(ahora);
+
+  const tareas = await almacenTareas.listar();
+  const pomodoros = await almacenPomodoros.listar();
+
+  // El id de la tarea no dice nada: el agente necesita el titulo.
+  const titulos = new Map(tareas.map((t) => [t.id, t.titulo] as const));
+
+  // Los pomodoros van DEBAJO de las tareas, y solo si hubo alguno hoy.
+  const contenido = [proyectarTablero(tareas, fecha), proyectarPomodoros(pomodoros, fecha, titulos, ahora)]
+    .filter((bloque) => bloque !== "")
+    .join("\n");
+
   await mkdir(dirname(rutaTablero), { recursive: true });
   await writeFile(rutaTablero, contenido, "utf8");
   return contenido;
+}
+/**
+ * El almacen de pomodoros, armado.
+ *
+ * Es identico al de tareas salvo el prefijo, el conversor y el nombre. Esa es
+ * toda la diferencia entre guardar una cosa y la otra.
+ */
+export function crearAlmacenDePomodoros(rutaArchivo: string): Almacen<Pomodoro> {
+  return crearAlmacenJSON({
+    ruta: rutaArchivo,
+    conversor: {
+      desdeJSON: (dato) => Pomodoro.desdeJSON(dato),
+      aJSON: (pomodoro) => pomodoro.aJSON(),
+    },
+    prefijoId: "p",
+    nombre: "pomodoro",
+  });
 }

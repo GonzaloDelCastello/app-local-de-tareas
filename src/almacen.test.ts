@@ -9,7 +9,7 @@ import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { crearAlmacenJSON, publicarTablero, renombrarConReintentos } from "./almacen.ts";
+import { crearAlmacenDePomodoros, crearAlmacenDeTareas, publicarTablero, renombrarConReintentos } from "./almacen.ts";
 import { Tarea } from "./tarea.ts";
 
 const HOY = "2026-10-13";
@@ -32,7 +32,7 @@ async function enDirectorioNuevo(
 
 test("listar en un archivo que todavia no existe devuelve una lista vacia", async (t) => {
   await enDirectorioNuevo(t, async (dir) => {
-    const almacen = crearAlmacenJSON(join(dir, "tareas.json"));
+    const almacen = crearAlmacenDeTareas(join(dir, "tareas.json"));
     assert.deepEqual(await almacen.listar(), []);
     assert.equal(await almacen.buscar("t-0001"), null);
   });
@@ -40,7 +40,7 @@ test("listar en un archivo que todavia no existe devuelve una lista vacia", asyn
 
 test("guardar y volver a listar devuelve la tarea como Tarea, no como objeto plano", async (t) => {
   await enDirectorioNuevo(t, async (dir) => {
-    const almacen = crearAlmacenJSON(join(dir, "tareas.json"));
+    const almacen = crearAlmacenDeTareas(join(dir, "tareas.json"));
     await almacen.guardar(Tarea.crear({ titulo: "Pagar la tarjeta" }, "t-0001", HOY));
 
     const tareas = await almacen.listar();
@@ -52,7 +52,7 @@ test("guardar y volver a listar devuelve la tarea como Tarea, no como objeto pla
 
 test("guardar dos veces el mismo id reemplaza, no duplica", async (t) => {
   await enDirectorioNuevo(t, async (dir) => {
-    const almacen = crearAlmacenJSON(join(dir, "tareas.json"));
+    const almacen = crearAlmacenDeTareas(join(dir, "tareas.json"));
     const tarea = Tarea.crear({ titulo: "Original" }, "t-0001", HOY);
     await almacen.guardar(tarea);
 
@@ -67,7 +67,7 @@ test("guardar dos veces el mismo id reemplaza, no duplica", async (t) => {
 
 test("buscar y eliminar", async (t) => {
   await enDirectorioNuevo(t, async (dir) => {
-    const almacen = crearAlmacenJSON(join(dir, "tareas.json"));
+    const almacen = crearAlmacenDeTareas(join(dir, "tareas.json"));
     await almacen.guardar(Tarea.crear({ titulo: "Una" }, "t-0001", HOY));
     await almacen.guardar(Tarea.crear({ titulo: "Otra" }, "t-0002", HOY));
 
@@ -87,7 +87,7 @@ test("buscar y eliminar", async (t) => {
 
 test("siguienteId arranca en t-0001 y sigue desde el mas alto", async (t) => {
   await enDirectorioNuevo(t, async (dir) => {
-    const almacen = crearAlmacenJSON(join(dir, "tareas.json"));
+    const almacen = crearAlmacenDeTareas(join(dir, "tareas.json"));
     assert.equal(await almacen.siguienteId(), "t-0001");
 
     await almacen.guardar(Tarea.crear({ titulo: "Siete" }, "t-0007", HOY));
@@ -103,7 +103,7 @@ test("siguienteId arranca en t-0001 y sigue desde el mas alto", async (t) => {
 test("una tarea con el id repetido en el archivo se detecta al buscar", async (t) => {
   await enDirectorioNuevo(t, async (dir) => {
     const ruta = join(dir, "tareas.json");
-    const almacen = crearAlmacenJSON(ruta);
+    const almacen = crearAlmacenDeTareas(ruta);
     await almacen.guardar(Tarea.crear({ titulo: "Primera" }, "t-0001", HOY));
 
     // Se edita el archivo a mano, como haria una persona o un agente.
@@ -119,7 +119,7 @@ test("un archivo que no es JSON valido falla con un mensaje que dice cual", asyn
   await enDirectorioNuevo(t, async (dir) => {
     const ruta = join(dir, "tareas.json");
     await writeFile(ruta, "{ esto no es json", "utf8");
-    const almacen = crearAlmacenJSON(ruta);
+    const almacen = crearAlmacenDeTareas(ruta);
     await assert.rejects(() => almacen.listar(), /no es JSON valido/);
   });
 });
@@ -131,7 +131,7 @@ test("una tarea invalida adentro del archivo falla diciendo la posicion", async 
     const mala = { ...buena, id: "t-0002", titulo: "   " };
     await writeFile(ruta, `${JSON.stringify([buena, mala], null, 2)}\n`, "utf8");
 
-    const almacen = crearAlmacenJSON(ruta);
+    const almacen = crearAlmacenDeTareas(ruta);
     await assert.rejects(() => almacen.listar(), /posicion 1/);
   });
 });
@@ -139,7 +139,7 @@ test("una tarea invalida adentro del archivo falla diciendo la posicion", async 
 test("el archivo se escribe en UTF-8 sin BOM, con LF, y sin dejar temporales", async (t) => {
   await enDirectorioNuevo(t, async (dir) => {
     const ruta = join(dir, "tareas.json");
-    const almacen = crearAlmacenJSON(ruta);
+    const almacen = crearAlmacenDeTareas(ruta);
     await almacen.guardar(Tarea.crear({ titulo: "Acentos: ñandú y café" }, "t-0001", HOY));
 
     const bytes = await readFile(ruta);
@@ -156,13 +156,14 @@ test("el archivo se escribe en UTF-8 sin BOM, con LF, y sin dejar temporales", a
 
 test("publicarTablero escribe la vista derivada y la devuelve", async (t) => {
   await enDirectorioNuevo(t, async (dir) => {
-    const almacen = crearAlmacenJSON(join(dir, "tareas.json"));
+    const almacen = crearAlmacenDeTareas(join(dir, "tareas.json"));
     await almacen.guardar(
       Tarea.crear({ titulo: "Pagar la tarjeta", venceEl: "2026-10-14", impostergable: true }, "t-0001", HOY),
     );
 
     const rutaTablero = join(dir, "tablero.md");
-    const devuelto = await publicarTablero(almacen, rutaTablero, HOY);
+    const sinPomodoros = crearAlmacenDePomodoros(join(dir, "pomodoros.json"));
+    const devuelto = await publicarTablero(almacen, sinPomodoros, rutaTablero, new Date(`${HOY}T12:00:00.000Z`));
 
     assert.match(devuelto, /## pendiente \(1\)/);
     assert.match(devuelto, /No editar a mano/);

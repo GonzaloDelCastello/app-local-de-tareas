@@ -8,8 +8,8 @@
 // las tareas de tu bandeja del 2026-10-02 al 2026-10-09, para ver como quedan
 // una vez que dejan de ser lineas de texto.
 
-import { crearAlmacenJSON, publicarTablero } from "./almacen.ts";
-import { ARCHIVO_TABLERO, ARCHIVO_TAREAS, DIRECTORIO_DATOS, hoy } from "./config.ts";
+import { crearAlmacenDePomodoros, crearAlmacenDeTareas, publicarTablero } from "./almacen.ts";
+import { ARCHIVO_POMODOROS, ARCHIVO_TABLERO, ARCHIVO_TAREAS, DIRECTORIO_DATOS, hoy } from "./config.ts";
 import { Tarea } from "./tarea.ts";
 import type { DatosNuevaTarea } from "./tipos.ts";
 
@@ -38,7 +38,8 @@ const semilla: DatosNuevaTarea[] = [
   },
 ];
 
-const almacen = crearAlmacenJSON(ARCHIVO_TAREAS);
+const almacen = crearAlmacenDeTareas(ARCHIVO_TAREAS);
+const almacenPomodoros = crearAlmacenDePomodoros(ARCHIVO_POMODOROS);
 const existentes = await almacen.listar();
 
 if (existentes.length === 0) {
@@ -63,7 +64,7 @@ if (existentes.length === 0) {
   console.log(`El almacen ya tenia ${existentes.length} tareas: no toco nada.`);
 }
 
-const tablero = await publicarTablero(almacen, ARCHIVO_TABLERO, HOY);
+const tablero = await publicarTablero(almacen, almacenPomodoros, ARCHIVO_TABLERO, new Date(`${HOY}T12:00:00.000Z`));
 
 console.log("");
 console.log(`Datos     : ${ARCHIVO_TAREAS}`);

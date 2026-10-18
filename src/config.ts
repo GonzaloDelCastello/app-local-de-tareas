@@ -25,6 +25,9 @@ export const DIRECTORIO_DATOS = process.env.TAREAS_DATOS ?? join(RAIZ_PROYECTO, 
 /** El archivo de tareas (Etapa 2 de C7: despues esto pasa a SQLite). */
 export const ARCHIVO_TAREAS = join(DIRECTORIO_DATOS, "tareas.json");
 
+/** Los pomodoros van en su propio archivo: tienen otro ciclo de vida (C22). */
+export const ARCHIVO_POMODOROS = join(DIRECTORIO_DATOS, "pomodoros.json");
+
 /**
  * La vista derivada que leen los presets `gabinete` y `rendimiento` (C6).
  * Es de SOLO LECTURA para ellos: la fuente de verdad son los datos.
@@ -48,11 +51,33 @@ export const DIRECCION = "127.0.0.1";
 export const ZONA = "America/Argentina/Buenos_Aires";
 
 /**
- * La fecha de hoy en formato AAAA-MM-DD, en la zona de Buenos Aires.
+ * La fecha de un instante como AAAA-MM-DD, en la zona de Buenos Aires.
  *
  * `en-CA` se usa solo porque formatea como 2026-10-13, que es exactamente el
  * formato que pide la convencion. No tiene nada que ver con Canada.
+ *
+ * Existe ademas de `hoy()` por un motivo concreto de los pomodoros: se guardan
+ * como instantes en UTC, y para saber a que DIA pertenecen hay que pasarlos por
+ * la zona. Un pomodoro de las 23:50 del 14 en Buenos Aires es, en UTC, la 01:50
+ * del 15. Agrupar por dia sin convertir mete el ultimo pomodoro de la noche en
+ * el dia equivocado, y el resumen diario quedaria mal justo en el horario en
+ * que mas se trabaja.
  */
+export function fechaEnZona(instante: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA }).format(instante);
+}
+
+/** La fecha de hoy en formato AAAA-MM-DD, en la zona de Buenos Aires. */
 export function hoy(ahora: Date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA }).format(ahora);
+  return fechaEnZona(ahora);
+}
+
+/** La hora local HH:MM de un instante. Para mostrar, no para comparar. */
+export function horaEnZona(instante: Date): string {
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone: ZONA,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(instante);
 }
