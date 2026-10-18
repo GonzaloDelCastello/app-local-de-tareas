@@ -11,7 +11,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { crearAlmacenJSON } from "./almacen.ts";
+import { crearAlmacenDeTareas } from "./almacen.ts";
+import { Tarea } from "./tarea.ts";
 import type { Almacen } from "./almacen.ts";
 import { manejarApi } from "./api.ts";
 import type { RespuestaApi } from "./api.ts";
@@ -22,13 +23,13 @@ type Llamar = (metodo: string, ruta: string, cuerpo?: unknown) => Promise<Respue
 
 async function conApi(
   t: { after: (fn: () => void | Promise<void>) => void },
-  prueba: (llamar: Llamar, almacen: Almacen) => Promise<void>,
+  prueba: (llamar: Llamar, almacen: Almacen<Tarea>) => Promise<void>,
 ): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "api-"));
   t.after(async () => {
     await rm(dir, { recursive: true, force: true });
   });
-  const almacen = crearAlmacenJSON(join(dir, "tareas.json"));
+  const almacen = crearAlmacenDeTareas(join(dir, "tareas.json"));
   const llamar: Llamar = async (metodo, ruta, cuerpo) =>
     await manejarApi(metodo, ruta, cuerpo === undefined ? "" : JSON.stringify(cuerpo), almacen, HOY);
   await prueba(llamar, almacen);

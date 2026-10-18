@@ -14,11 +14,11 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, resolve, sep } from "node:path";
 
-import { crearAlmacenJSON, publicarTablero } from "./almacen.ts";
-import { manejarApi } from "./api.ts";
+import { crearAlmacenDePomodoros, crearAlmacenDeTareas, publicarTablero } from "./almacen.ts";
+import { manejarApi, manejarApiPomodoros } from "./api.ts";
 // La configuracion sale de config.ts y no esta repetida aca: un solo lugar
 // donde mirar cuando algo cambia de valor (decision C11).
-import { ARCHIVO_TABLERO, ARCHIVO_TAREAS, DIRECCION, PUERTO, RAIZ_PROYECTO, hoy } from "./config.ts";
+import { ARCHIVO_POMODOROS, ARCHIVO_TABLERO, ARCHIVO_TAREAS, DIRECCION, PUERTO, RAIZ_PROYECTO, hoy } from "./config.ts";
 
 const RAIZ_PUBLICA = join(RAIZ_PROYECTO, "publico");
 
@@ -52,8 +52,9 @@ const RAIZ_PUBLICA_ABSOLUTA = resolve(RAIZ_PUBLICA);
  */
 const LIMITE_CUERPO_BYTES = 100_000;
 
-/** Un solo almacen para todo el proceso, creado al arrancar. */
-const almacen = crearAlmacenJSON(ARCHIVO_TAREAS);
+/** Un almacen por cosa guardada, creados al arrancar. */
+const almacen = crearAlmacenDeTareas(ARCHIVO_TAREAS);
+const almacenPomodoros = crearAlmacenDePomodoros(ARCHIVO_POMODOROS);
 
 // `datos: unknown` y no `any`: quien llama puede pasar cualquier cosa, y
 // JSON.stringify acepta cualquier cosa. `unknown` obliga a pensarlo; `any` lo
@@ -180,7 +181,7 @@ async function servirEstatico(res: ServerResponse, rutaPedida: string): Promise<
  */
 async function republicarTablero(): Promise<void> {
   try {
-    await publicarTablero(almacen, ARCHIVO_TABLERO, hoy());
+    await publicarTablero(almacen, almacenPomodoros, ARCHIVO_TABLERO, new Date());
   } catch (falla) {
     const motivo = falla instanceof Error ? falla.message : String(falla);
     console.error(`No se pudo regenerar ${ARCHIVO_TABLERO}: ${motivo}`);
@@ -203,7 +204,23 @@ const servidor = createServer(async (req: IncomingMessage, res: ServerResponse) 
     const llevaCuerpo = metodo === "POST" || metodo === "PATCH" || metodo === "PUT";
     const cuerpoCrudo = llevaCuerpo ? await leerCuerpo(req) : "";
 
-    const respuesta = await manejarApi(metodo, url.pathname, cuerpoCrudo, almacen, hoy());
+    // Las dos capas se prueban en orden. Una ruta de tareas nunca es una de
+    // pomodoros, asi que con que conteste una alcanza.
+    const deTareas = await manejarApi(metodo, url.pathname, cuerpoCrudo, almacen, hoy());
+    const dePomodoros =
+      deTareas === null
+        ? await manejarApiPomodoros(
+            metodo,
+            url.pathname,
+            cuerpoCrudo,
+            almacenPomodoros,
+            // Solo se le pasa la capacidad que necesita: saber si una tarea existe.
+            (id) => almacen.buscar(id),
+            new Date(),
+          )
+        : null;
+
+    const respuesta = deTareas ?? dePomodoros;
 
     if (respuesta !== null) {
       if (respuesta.cambio === true) await republicarTablero();
