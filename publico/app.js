@@ -178,6 +178,9 @@ function crearTarjeta(tarea, hoy) {
   botones.append(
     boton("←", `Mover a ${anterior?.nombre ?? ""}`, anterior === undefined, () => mover(tarea.id, anterior.estado)),
     boton("→", `Mover a ${siguiente?.nombre ?? ""}`, siguiente === undefined, () => mover(tarea.id, siguiente.estado)),
+    // Arranca un pomodoro en ESTA tarea. La duracion es la de por defecto; para
+    // otra, se arranca desde la barra de foco (que no tiene tarea asociada).
+    boton("▶", "Empezar un pomodoro en esta tarea", false, () => arrancarPomodoro(25, tarea.id)),
     boton("✎", "Editar", false, () => abrirEdicion(tarea.id)),
     boton("✕", "Borrar", false, () => borrar(tarea.id)),
   );
@@ -362,6 +365,105 @@ async function guardarEdicion(evento) {
 }
 
 // ---------------------------------------------------------------------------
+// El foco (pomodoro)
+//
+// LA IDEA CENTRAL: el navegador NO lleva la cuenta del tiempo. Recibe del
+// servidor cuando empezo y cuanto dura, y en cada segundo RESTA. Si llevara un
+// contador propio, recargar la pagina lo perderia, y una pestana suspendida lo
+// dejaria mintiendo. Restar dos instantes siempre da bien.
+// ---------------------------------------------------------------------------
+
+const focoLibre = document.querySelector("#foco-libre");
+const focoCorriendo = document.querySelector("#foco-corriendo");
+const reloj = document.querySelector("#reloj");
+const focoTarea = document.querySelector("#foco-tarea");
+
+/** El pomodoro que corre ahora, segun el servidor. null si no hay ninguno. */
+let pomodoroEnCurso = null;
+
+/** El id del intervalo que mueve el reloj, o null. */
+let ticTac = null;
+
+async function cargarFoco() {
+  const datos = await pedir("GET", "/api/pomodoros/en-curso");
+  pomodoroEnCurso = datos.pomodoro;
+  dibujarFoco();
+}
+
+function dibujarFoco() {
+  focoLibre.hidden = pomodoroEnCurso !== null;
+  focoCorriendo.hidden = pomodoroEnCurso === null;
+
+  if (ticTac !== null) {
+    clearInterval(ticTac);
+    ticTac = null;
+  }
+  if (pomodoroEnCurso === null) return;
+
+  const tarea = tareas.find((t) => t.id === pomodoroEnCurso.tareaId);
+  focoTarea.textContent = tarea === undefined ? "sin tarea" : tarea.titulo;
+
+  moverReloj();
+  ticTac = setInterval(moverReloj, 1000);
+}
+
+/**
+ * Mueve el reloj de la pantalla.
+ *
+ * Recalcula desde `finPrevisto` y la hora actual en CADA llamada, en lugar de
+ * restarle uno al valor anterior. Si acumulara, cada tic sumaria su propio
+ * error; y en una pestana en segundo plano, donde el navegador frena los
+ * intervalos, el numero quedaria atras y nunca se corregiria.
+ */
+function moverReloj() {
+  if (pomodoroEnCurso === null) return;
+
+  const restantes = Math.max(0, Math.round((Date.parse(pomodoroEnCurso.finPrevisto) - Date.now()) / 1000));
+  const minutos = String(Math.floor(restantes / 60)).padStart(2, "0");
+  const segundos = String(restantes % 60).padStart(2, "0");
+  reloj.textContent = `${minutos}:${segundos}`;
+
+  if (restantes === 0) {
+    // Se cumplio. NO hay que avisarle al servidor: el estado se deriva del
+    // reloj. Alcanza con volver a preguntar para que el boton aparezca solo.
+    if (ticTac !== null) {
+      clearInterval(ticTac);
+      ticTac = null;
+    }
+    cargarFoco().catch(() => {});
+  }
+}
+
+async function arrancarPomodoro(duracionMin, tareaId) {
+  limpiarAviso();
+  const cuerpo = { duracionMin };
+  if (tareaId !== undefined && tareaId !== null) cuerpo.tareaId = tareaId;
+
+  try {
+    pomodoroEnCurso = await pedir("POST", "/api/pomodoros", cuerpo);
+    dibujarFoco();
+  } catch (falla) {
+    // El 409 ("ya hay uno en curso") cae aca, y el mensaje del servidor ya
+    // explica cual esta corriendo.
+    mostrarAviso(`No se pudo arrancar el pomodoro: ${falla.message}`);
+    await cargarFoco().catch(() => {});
+  }
+}
+
+async function terminarPomodoro() {
+  if (pomodoroEnCurso === null) return;
+  limpiarAviso();
+
+  try {
+    await pedir("PATCH", `/api/pomodoros/${pomodoroEnCurso.id}`, { estado: "terminado" });
+    pomodoroEnCurso = null;
+    dibujarFoco();
+  } catch (falla) {
+    mostrarAviso(`No se pudo terminar el pomodoro: ${falla.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Arranque
 // ---------------------------------------------------------------------------
 
@@ -371,10 +473,19 @@ document.querySelector("#cancelar-edicion").addEventListener("click", () => dial
 document.querySelector("#refrescar").addEventListener("click", () => {
   limpiarAviso();
   recargar().catch((falla) => mostrarAviso(falla.message));
+  cargarFoco().catch(() => {});
 });
+
+document.querySelector("#terminar-pomodoro").addEventListener("click", terminarPomodoro);
+
+// Los botones de duracion de la barra de foco. `data-duracion` dice cuanto.
+for (const botonDuracion of document.querySelectorAll("[data-duracion]")) {
+  botonDuracion.addEventListener("click", () => arrancarPomodoro(Number(botonDuracion.dataset.duracion)));
+}
 
 try {
   await recargar();
+  await cargarFoco();
 } catch (falla) {
   mostrarAviso(`No se pudo cargar el tablero: ${falla.message}`);
 }

@@ -156,7 +156,28 @@ El CSS pasó de un archivo a cinco módulos con **capas de cascada** (`@layer`),
 
 ---
 
-## Etapa 5 — La verificación
+## Etapa 5 — El tiempo como dato (el pomodoro) — hecha el 2026-10-17 (C22)
+
+**Conceptos:** el tiempo como dato y no como sensacion, instante vs. fecha, derivar en lugar de guardar, por que un contador no sirve, el reloj que resta en vez de contar.
+
+**La decision que ordena todo, y que ya estaba tomada en C12:** el pomodoro no es un contador de "pomodoros cumplidos" dentro de la tarea. Es un **registro con dos marcas de tiempo**. Un entero no se puede auditar y no dice *cuando* trabajaste; y lo que `rendimiento` necesita es exactamente eso: donde cayeron los bloques de foco, para cruzarlos con las franjas del horario.
+
+**Lo que aparecio al construirlo:**
+
+| Aparece | Por que |
+|---|---|
+| **El estado se deriva, no se guarda** | `ahora >= iniciadoEl + duracion` ya dice si esta cumplido. No hace falta ningun temporizador, ni un proceso que limpie nada al arrancar: el estado es correcto lo mire quien lo mire y cuando lo mire |
+| **El navegador no cuenta: resta** | El reloj de la pantalla recalcula `finPrevisto - ahora` en cada tic. Si le restara uno al valor anterior, cada tic sumaria su error; y en una pestaña en segundo plano, donde el navegador frena los intervalos, quedaria atras para siempre |
+| **Instante no es fecha** | Es la primera vez que el proyecto necesita la hora. Se guardan instantes en UTC y para agrupar por dia se pasan por la zona: un pomodoro de las 23:50 del 14 es, en UTC, la 01:50 del 15. Sin convertir, el ultimo bloque de la noche cae en el dia equivocado |
+| **Un solo reloj a la vez** | Dos pomodoros superpuestos no significan nada y el registro quedaria con bloques encima de otros. El segundo `POST` da `409` y devuelve el que corre |
+| **La linea y el total tienen que medir lo mismo** | La primera version mostraba `25 min` en la linea (el previsto) y sumaba `0` en el total (el real). Dos numeros para la misma cosa es una mentira silenciosa; se unifico en `finEfectivo` |
+| **Lo que no paso, no se puede mostrar** | Un pomodoro que va por el minuto 2 no puede figurar como un bloque de 25: el agente leeria trabajo que no existio. Se marca "en curso" |
+| **El almacen se generalizo** | Lo dificil de persistir no es guardar tareas: es escribir sin romper el archivo y sobrevivir al renombre que Windows rechaza. Eso es igual para todo, asi que `Almacen<T>` con un conversor por tipo. Las 43 pruebas que ya habia permitieron el refactor sin miedo |
+
+**Y algo que vale la pena ver:** el pomodoro toca las cuatro capas (dominio, almacen, API e interfaz) y ninguna por separado lo explica. Es el primer cambio del proyecto que **atraviesa** la arquitectura entera, y sirve para comprobar que separar en capas no es ceremonia: cada capa se pudo probar sola, y cuando algo se rompio, el error dijo en cual estaba.
+
+---
+## Etapa 6 — La verificación
 
 **Conceptos:** prueba que ejecuta, aserción, prueba de integración, caso borde, regresión.
 
@@ -168,7 +189,7 @@ El CSS pasó de un archivo a cinco módulos con **capas de cascada** (`@layer`),
 
 ---
 
-## Etapa 6 — La integración con los agentes
+## Etapa 7 — La integración con los agentes
 
 **Conceptos:** interfaz de línea de comandos, salida legible por máquina, formato estable, contrato entre un programa y un agente, por qué el texto libre no es base de datos.
 

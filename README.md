@@ -8,7 +8,7 @@ Tablero de tareas tipo **Kanban** (la "vista de tablero" de Notion) que corre **
 - Incluye un **contador pomodoro**, y el registro de pomodoros es un dato más que la app publica para el agente `rendimiento` (ver C12 en [DECISIONES.md](docs/DECISIONES.md)).
 - El objetivo del proyecto es **aprender**: cada pieza se decide, se escribe y se verifica en conjunto.
 
-**Estado: la app funciona.** Dominio, almacén, API e interfaz, con 43 pruebas automáticas y una comprobación de la interfaz contra el servidor real. Lo que falta es el pasaje a SQLite y la integración con los agentes (Etapa 6). Las decisiones se toman en [DECISIONES.md](docs/DECISIONES.md).
+**Estado: la app funciona, con pomodoro.** Dominio, almacén, API e interfaz, con **77 pruebas automáticas** y una comprobación de la interfaz contra el servidor real. Lo que falta es el pasaje a SQLite y la integración con los agentes (Etapa 7). Las decisiones se toman en [DECISIONES.md](docs/DECISIONES.md).
 
 ## Documentos
 
@@ -50,6 +50,9 @@ Qué responde hoy (verificado el 2026-10-13 ejecutando, no leyendo el código):
 | `GET /api/tareas/:id` | `200` con la tarea, o `404` |
 | `PATCH /api/tareas/:id` | `200` con la tarea modificada |
 | `DELETE /api/tareas/:id` | `204` sin cuerpo, o `404` |
+| `POST /api/pomodoros` | `201` con el pomodoro arrancado, o `409` si ya hay uno |
+| `GET /api/pomodoros/en-curso` | `200` con el que corre, o `null` |
+| `PATCH /api/pomodoros/:id` | `200`, lo cierra |
 | ruta de la API con el método equivocado | `405` con el encabezado `Allow` |
 | cualquier otra ruta | `404` con un JSON que dice qué ruta no existe |
 
@@ -105,11 +108,12 @@ npm.cmd install --cache "$env:TEMP\npm-cache-dsh"
 src\                          el programa
   tipos.ts                    la forma de los datos
   tarea.ts                    el dominio: la clase Tarea y sus invariantes
+  pomodoro.ts                 el pomodoro: dos marcas de tiempo, estado derivado
   almacen.ts                  la persistencia, detras de una interfaz (hoy JSON)
   api.ts                      el contrato de la API
   servidor.ts                 HTTP y entrega de archivos
   config.ts                   rutas y puerto, configurables
-  *.test.ts                   las pruebas (43)
+  *.test.ts                   las pruebas (77)
   demo-*.ts                   scripts para ver cosas a mano
 publico\                      lo que ve el navegador
   index.html

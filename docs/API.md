@@ -152,3 +152,47 @@ Get-Content datos\tablero.md -Raw -Encoding UTF8
 
 Un archivo de cuerpo **con BOM** hace que el JSON no parsee. Si el servidor
 contesta `"el cuerpo no es JSON valido"` y el JSON se ve bien, mirá el BOM.
+---
+
+## Pomodoros
+
+| Método | Ruta | Qué hace | Éxito |
+|---|---|---|---|
+| `GET` | `/api/pomodoros` | Todos, el más reciente primero | `200` |
+| `POST` | `/api/pomodoros` | Arranca uno | `201` |
+| `GET` | `/api/pomodoros/en-curso` | El que corre ahora, o `null` | `200` |
+| `GET` | `/api/pomodoros/:id` | Uno | `200` |
+| `PATCH` | `/api/pomodoros/:id` | Lo cierra | `200` |
+
+**Un solo pomodoro a la vez.** El segundo `POST` devuelve `409` con el que ya está corriendo, para que la interfaz pueda mostrarlo en lugar de perderlo.
+
+### La forma
+
+```json
+{
+  "id": "p-0002",
+  "tareaId": "t-0001",
+  "iniciadoEl": "2026-10-17T22:31:54.982Z",
+  "duracionMin": 25,
+  "terminadoEl": null,
+  "nota": "",
+  "finPrevisto": "2026-10-17T22:56:54.982Z",
+  "estado": "en-curso",
+  "segundosRestantes": 1500,
+  "duracionRealMin": 0
+}
+```
+
+Los cuatro últimos **no se guardan**: se calculan en cada respuesta. `estado` es `en-curso`, `cumplido` o `cortado`.
+
+**El estado se deriva del reloj**, no de que alguien lo haya marcado: si `ahora >= iniciadoEl + duracionMin`, está cumplido aunque nadie lo haya cerrado. Por eso no hace falta ningún temporizador y el pomodoro sobrevive a cerrar la pestaña o a reiniciar el servidor.
+
+### Qué se puede mandar
+
+- **Al arrancar**: `tareaId` (opcional, pero si viene tiene que existir), `duracionMin` (25 por defecto) y `nota`.
+- **Al cerrar**: `estado: "terminado"`. Es lo único que acepta `PATCH`: un pomodoro no se reabre.
+- `id`, `iniciadoEl` y `terminadoEl` son del servidor; mandarlos es `400`.
+
+### Instantes y zonas
+
+Es la única parte de la API que usa **hora**, no sólo fecha. Los instantes van en UTC (`...Z`). Para mostrarlos y para agrupar por día se pasan por `America/Argentina/Buenos_Aires`, porque un pomodoro de las 23:50 del 14 es, en UTC, la 01:50 del 15.

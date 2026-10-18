@@ -46,6 +46,25 @@
       <button type="submit" class="boton-principal">Agregar</button>
     </form>
 
+    <!-- El foco (C12). Tiene dos estados y nunca los dos a la vez: o se puede
+         arrancar uno, o hay uno andando. El reloj NO lleva la cuenta por su
+         lado: muestra la diferencia entre el fin previsto que manda el servidor
+         y la hora. Por eso sobrevive a recargar la pagina. -->
+    <section class="foco" aria-label="Pomodoro">
+      <div id="foco-libre" class="foco-libre">
+        <span class="foco-titulo">Foco</span>
+        <button type="button" class="boton-principal" data-duracion="25">25 min</button>
+        <button type="button" data-duracion="50">50 min</button>
+      </div>
+
+      <div id="foco-corriendo" class="foco-corriendo" hidden>
+        <span id="reloj" class="reloj">25:00</span>
+        <span class="foco-titulo">en</span>
+        <span id="foco-tarea" class="foco-tarea">sin tarea</span>
+        <button type="button" id="terminar-pomodoro">Terminar</button>
+      </div>
+    </section>
+
     <p id="aviso" class="aviso" hidden></p>
 
     <main id="tablero" class="tablero" aria-label="Tablero de tareas"></main>

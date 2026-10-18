@@ -41,6 +41,18 @@ Y una advertencia que hay que tener siempre presente: **Node borra los tipos, no
 | **C20** | **El CSS se escribe en cinco modulos con capas de cascada (`@layer`), tokens en custom properties y modo oscuro automatico** | 2026-10-13 | Un CSS que crece sin estructura se vuelve insostenible: para pisar un estilo hay que pelear con especificidad. Con capas, cada regla vive en un nivel y la prioridad se elige una vez. Y los valores viven en un solo archivo, no repetidos |
 | **C21** | **Los estáticos se sirven con contención de ruta, en lugar del mapa explícito de C19** | 2026-10-13 | El mapa obligaba a editar el servidor cada vez que se agregaba un módulo de CSS. Ahora se sirve cualquier archivo de `publico/` **después de resolver la ruta y comprobar que sigue adentro**, más una lista blanca de extensiones. CSS modular sin fricción, y sin abrir una puerta |
 
+| **C22** | **El pomodoro es un registro con DOS marcas de tiempo; el estado se deriva del reloj y nunca se guarda** | 2026-10-17 | Decision D9. C12 pedia marcas de tiempo y un contador derivado. Con eventos sueltos de inicio y fin habria que emparejarlos despues, y ahi se rompe. Y como el estado se DERIVA (ahora >= iniciadoEl + duracion), no hace falta ningun temporizador: sobrevive a cerrar la pestaña y a reiniciar el servidor |
+| **C23** | **El almacen es generico: Almacen<T> con un conversor por tipo** | 2026-10-17 | Lo dificil de persistir no es guardar tareas: es escribir sin romper el archivo y sobrevivir al renombre que Windows rechaza. Eso es igual para todo, asi que esa parte vive en un solo lugar y solo cambia la conversion |
+
+**Consecuencias de C22 — el diseno del pomodoro:**
+
+1. **Tres estados, todos derivados**: `en-curso`, `cumplido` y `cortado`. Ninguno se guarda.
+2. **Un solo pomodoro a la vez**: el segundo `POST` devuelve `409` con el que esta corriendo.
+3. **El fin se guarda como fin previsto**, no como la hora en que alguien se acordo de apretar el boton: lo que paso fue el bloque, no el clic.
+4. **Instantes en UTC** (`2026-10-17T22:31:54.982Z`), no fechas `AAAA-MM-DD`: es la primera vez que el proyecto necesita precision de hora. Para mostrar y para agrupar por dia se pasan por la zona.
+5. **La linea del tablero y el total miden lo mismo**, siempre por `finEfectivo`. Antes la linea decia 25 min (el previsto) y el total sumaba 0 (el real): dos numeros para la misma cosa.
+6. **Un pomodoro que todavia corre se marca "en curso"** y muestra lo que lleva: no puede figurar como un bloque de 25 minutos que no existio.
+
 **Consecuencias de C20:** los cinco módulos y su motivo:
 
 | Módulo | Qué contiene | Por qué separado |
@@ -155,6 +167,8 @@ Propuesta: **A**, y el resto como etapas siguientes. El MVP tiene que quedar usa
 **Resuelta el 2026-10-12 como C11 (opción C, ruta configurable).** Las tres opciones que se evaluaron: (A) directo en el cuartel general, (B) en el repo con proyección hacia afuera, (C) ruta configurable. Se eligió C porque el código no cambia cuando el dato cambia de lugar.
 
 ### D9 — Dónde entra el pomodoro en la secuencia de la ruta
+
+**Resuelta el 2026-10-17 como opcion A:** es la **Etapa 5**, "El tiempo como dato", entre la interfaz y la integracion con los agentes. La verificacion pasa a ser la Etapa 6 y la integracion la Etapa 7.
 
 **Qué falta decidir:** el pomodoro (C12) no tiene etapa asignada en `RUTA-APRENDIZAJE.md`. Toca tres etapas ya escritas: el modelo de eventos (Etapa 2), los endpoints (Etapa 3) y el reloj en pantalla (Etapa 4).
 

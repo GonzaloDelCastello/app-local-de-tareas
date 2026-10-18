@@ -126,12 +126,25 @@ porId.set(
   ]),
 );
 
+// El foco: el stub tiene que conocer sus ids, y los botones de duracion, porque
+// el JavaScript los busca con querySelectorAll.
+porId.set("#foco-libre", new ElementoFalso("div"));
+porId.set("#foco-corriendo", new ElementoFalso("div"));
+porId.set("#reloj", new ElementoFalso("span"));
+porId.set("#foco-tarea", new ElementoFalso("span"));
+porId.set("#terminar-pomodoro", new ElementoFalso("button"));
+
+const botonesDuracion = [new ElementoFalso("button"), new ElementoFalso("button")];
+botonesDuracion[0].dataset.duracion = "25";
+botonesDuracion[1].dataset.duracion = "50";
+
 globalThis.document = {
   querySelector: (selector) => {
     if (!porId.has(selector)) porId.set(selector, new ElementoFalso("div"));
     return porId.get(selector);
   },
   createElement: (etiqueta) => new ElementoFalso(etiqueta),
+  querySelectorAll: (selector) => (selector === "[data-duracion]" ? botonesDuracion : []),
 };
 globalThis.confirm = () => true;
 
@@ -180,9 +193,28 @@ afirmar(formularioNueva.titulo.value === "", "el formulario se limpio despues de
  * undefined" y no llegaba NUNCA a las comprobaciones del final, que son las que
  * dicen que salio mal. Un verificador que se cae en el peor momento no sirve.
  */
+/**
+ * El boton de la tarjeta que dice `simbolo`.
+ *
+ * Por simbolo y NO por posicion: cuando se agrego el ▶ de arrancar pomodoro,
+ * todos los indices corrieron uno y la prueba paso a clickear "editar" en lugar
+ * de "borrar". Buscar por lo que dice el boton no se rompe cuando la fila crece.
+ */
+function assertBoton(boton, simbolo) {
+  if (boton === undefined) {
+    afirmar(false, `no se encontro el boton "${simbolo}" en la tarjeta`);
+    process.exit(1);
+  }
+}
+
+function botonConSimbolo(tarjeta, simbolo) {
+  const fila = tarjeta.porClase("botones")[0];
+  return fila.hijos.find((b) => b.textContent === simbolo);
+}
+
 async function probarMovimientoYBorrado(tarjeta) {
   const botones = tarjeta.porClase("botones")[0].hijos;
-  afirmar(botones.length === 4, `la tarjeta tiene 4 botones (tiene ${botones.length})`);
+  afirmar(botones.length === 5, `la tarjeta tiene 5 botones, con el de arrancar pomodoro (tiene ${botones.length})`);
 
   // OJO: hay que releer tablero.hijos en cada medicion. dibujar() llama a
   // replaceChildren(), que REEMPLAZA el array de hijos: una referencia guardada
@@ -194,7 +226,9 @@ async function probarMovimientoYBorrado(tarjeta) {
   }
 
   const indiceAntes = indiceDe(titulo);
-  await botones[1].disparar("click");
+  const botonDerecha = botonConSimbolo(tarjeta, "→");
+  assertBoton(botonDerecha, "→");
+  await botonDerecha.disparar("click");
   await new Promise((seguir) => setTimeout(seguir, 150));
   const indiceDespues = indiceDe(titulo);
   afirmar(
@@ -203,7 +237,9 @@ async function probarMovimientoYBorrado(tarjeta) {
   );
 
   const tarjetaDespues = tablero.porClase("tarjeta").find((t) => t.textContent.includes(titulo));
-  await tarjetaDespues.porClase("botones")[0].hijos[3].disparar("click");
+  const botonBorrar = botonConSimbolo(tarjetaDespues, "✕");
+  assertBoton(botonBorrar, "✕");
+  await botonBorrar.disparar("click");
   await new Promise((seguir) => setTimeout(seguir, 200));
   afirmar(
     !tablero.porClase("tarjeta").some((t) => t.textContent.includes(titulo)),
@@ -218,6 +254,36 @@ if (tarjeta === undefined) {
   await probarMovimientoYBorrado(tarjeta);
 }
 
+// --- el foco (pomodoro) ---
+console.log("\nFoco:");
+
+if (porId.get("#foco-corriendo").hidden === false) {
+  // El servidor ya tenia un pomodoro andando. No se puede comprobar el
+  // arranque, y tampoco corresponde terminarlo: puede ser el de alguien.
+  console.log("  (ya habia un pomodoro en curso: se saltea la comprobacion del arranque)");
+  console.log("  (para verificarla, correr contra un servidor con datos limpios)");
+  process.exit(fallos === 0 ? 0 : 1);
+}
+
+afirmar(porId.get("#foco-corriendo").hidden === true, "al arrancar no hay ningun pomodoro corriendo");
+afirmar(porId.get("#foco-libre").hidden === false, "y se ve el boton de arrancar");
+
+await botonesDuracion[0].disparar("click");
+await new Promise((seguir) => setTimeout(seguir, 400));
+
+afirmar(porId.get("#foco-corriendo").hidden === false, "al arrancar uno, aparece el reloj");
+afirmar(porId.get("#foco-libre").hidden === true, "y se esconde el boton de arrancar");
+afirmar(
+  /^\d{2}:\d{2}$/.test(porId.get("#reloj").textContent),
+  `el reloj muestra mm:ss ("${porId.get("#reloj").textContent}")`,
+);
+
+await porId.get("#terminar-pomodoro").disparar("click");
+await new Promise((seguir) => setTimeout(seguir, 400));
+
+afirmar(porId.get("#foco-corriendo").hidden === true, "al terminarlo, el reloj se va");
+afirmar(porId.get("#foco-libre").hidden === false, "y vuelve el boton de arrancar");
+
 // El aviso de error: si quedo visible, se muestra QUE dice. El texto importa
 // tanto como el hecho de que aparezca.
 const aviso = porId.get("#aviso");
@@ -230,8 +296,11 @@ if (aviso.hidden === true) {
 console.log("");
 if (fallos === 0) {
   console.log("Todo bien.");
-  process.exitCode = 0;
 } else {
   console.log(`${fallos} comprobaciones fallaron.`);
-  process.exitCode = 1;
 }
+
+// process.exit y no process.exitCode: si quedo un setInterval andando (el del
+// reloj), el proceso no terminaria nunca y el comando se quedaria colgado sin
+// decir nada. Un verificador que no termina no sirve.
+process.exit(fallos === 0 ? 0 : 1);

@@ -347,4 +347,70 @@
     margin: 0;
     padding: 0;
   }
+
+  /* ===== Foco (pomodoro) ================================================= */
+
+  /* Una barra, no una tarjeta: el foco no compite con las tareas, las acompana. */
+  .foco {
+    display: flex;
+    align-items: center;
+    gap: var(--e-3);
+    padding: var(--e-3) var(--e-4);
+    background: var(--superficie);
+    border: 1px solid var(--borde);
+    border-radius: var(--r-lg);
+    transition: background-color var(--transicion), border-color var(--transicion);
+  }
+
+  .foco-libre,
+  .foco-corriendo {
+    display: flex;
+    align-items: center;
+    gap: var(--e-3);
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  /* display: flex pisa el hidden del navegador. Es el mismo detalle que en el
+     aviso, y se repite aca por la misma razon. */
+  .foco-libre[hidden],
+  .foco-corriendo[hidden] {
+    display: none;
+  }
+
+  .foco-titulo {
+    color: var(--texto-2);
+    font-size: var(--t-sm);
+    font-weight: var(--peso-fuerte);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* Cifras de ancho fijo: sin eso, cada vez que cambia un digito el texto se
+     corre y el reloj tiembla. */
+  .reloj {
+    font-family: var(--fuente-mono);
+    font-size: 1.75rem;
+    font-weight: var(--peso-fuerte);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--acento);
+  }
+
+  .foco-tarea {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--texto-2);
+    font-size: var(--t-sm);
+  }
+
+  /* Mientras corre, la barra entera se marca. */
+  .foco:has(.foco-corriendo:not([hidden])) {
+    border-color: var(--acento);
+    background: var(--acento-suave);
+  }
 }
