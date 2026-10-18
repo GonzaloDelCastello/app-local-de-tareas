@@ -9,7 +9,8 @@
 // una vez que dejan de ser lineas de texto.
 
 import { crearAlmacenDePomodoros, crearAlmacenDeTareas, publicarTablero } from "./almacen.ts";
-import { ARCHIVO_POMODOROS, ARCHIVO_TABLERO, ARCHIVO_TAREAS, DIRECTORIO_DATOS, hoy } from "./config.ts";
+import { join } from "node:path";
+import { ARCHIVO_POMODOROS, ARCHIVO_TAREAS, DIRECTORIO_DATOS, hoy } from "./config.ts";
 import { Tarea } from "./tarea.ts";
 import type { DatosNuevaTarea } from "./tipos.ts";
 
@@ -64,11 +65,14 @@ if (existentes.length === 0) {
   console.log(`El almacen ya tenia ${existentes.length} tareas: no toco nada.`);
 }
 
-const tablero = await publicarTablero(almacen, almacenPomodoros, ARCHIVO_TABLERO, new Date(`${HOY}T12:00:00.000Z`));
+// El demo publica en datos\ y NO en el cuartel general: son tareas de ejemplo y
+// no tienen que aparecerle al agente como si fueran reales.
+const rutaTablero = join(DIRECTORIO_DATOS, "tablero.md");
+const tablero = await publicarTablero(almacen, almacenPomodoros, rutaTablero, new Date(`${HOY}T12:00:00.000Z`));
 
 console.log("");
 console.log(`Datos     : ${ARCHIVO_TAREAS}`);
-console.log(`Tablero   : ${ARCHIVO_TABLERO}`);
+console.log(`Tablero   : ${rutaTablero}`);
 console.log(`Directorio: ${DIRECTORIO_DATOS}`);
 console.log("");
 console.log(`Proximo id: ${await almacen.siguienteId()}`);

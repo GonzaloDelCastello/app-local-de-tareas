@@ -8,7 +8,9 @@ Tablero de tareas tipo **Kanban** (la "vista de tablero" de Notion) que corre **
 - Incluye un **contador pomodoro**, y el registro de pomodoros es un dato más que la app publica para el agente `rendimiento` (ver C12 en [DECISIONES.md](docs/DECISIONES.md)).
 - El objetivo del proyecto es **aprender**: cada pieza se decide, se escribe y se verifica en conjunto.
 
-**Estado: la app funciona, con pomodoro.** Dominio, almacén, API e interfaz, con **77 pruebas automáticas** y una comprobación de la interfaz contra el servidor real. Lo que falta es el pasaje a SQLite y la integración con los agentes (Etapa 7). Las decisiones se toman en [DECISIONES.md](docs/DECISIONES.md).
+**Qué publica para los agentes:** en cada cambio escribe `tablero.md` (para leer) y `tareas.json` (para analizar) en `C:\Users\gonza\DeepS\rendimiento\datos\`. La ruta se pisa con `$env:TAREAS_AGENTES`, y se puede regenerar a mano con `node src/exportar.ts`.
+
+**Estado: la app funciona, con pomodoro.** Dominio, almacén, API e interfaz, con **87 pruebas automáticas** y una comprobación de la interfaz contra el servidor real. Lo que falta es el pasaje a SQLite y la integración con los agentes (Etapa 7). Las decisiones se toman en [DECISIONES.md](docs/DECISIONES.md).
 
 ## Documentos
 
@@ -72,6 +74,7 @@ npm.cmd test               # las pruebas (src\*.test.ts)
 node src/demo-almacen.ts   # el ciclo completo contra datos\: guarda tareas y publica el tablero
 node src/demo-tablero.ts   # sólo la proyección del tablero, sin tocar el disco
 node herramientas/revisar-css.mjs   # llaves, tokens definidos y enlaces del HTML
+node src/exportar.ts                # publica tablero.md y tareas.json para los agentes
 ```
 
 Y la comprobación de la interfaz, que necesita el servidor levantado en otra terminal:
@@ -109,11 +112,13 @@ src\                          el programa
   tipos.ts                    la forma de los datos
   tarea.ts                    el dominio: la clase Tarea y sus invariantes
   pomodoro.ts                 el pomodoro: dos marcas de tiempo, estado derivado
+  exporte.ts                  la proyeccion al esquema que leen los agentes
   almacen.ts                  la persistencia, detras de una interfaz (hoy JSON)
   api.ts                      el contrato de la API
   servidor.ts                 HTTP y entrega de archivos
   config.ts                   rutas y puerto, configurables
-  *.test.ts                   las pruebas (77)
+  *.test.ts                   las pruebas (87)
+  exportar.ts                 publica para los agentes, bajo demanda
   demo-*.ts                   scripts para ver cosas a mano
 publico\                      lo que ve el navegador
   index.html

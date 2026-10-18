@@ -44,6 +44,17 @@ Y una advertencia que hay que tener siempre presente: **Node borra los tipos, no
 | **C22** | **El pomodoro es un registro con DOS marcas de tiempo; el estado se deriva del reloj y nunca se guarda** | 2026-10-17 | Decision D9. C12 pedia marcas de tiempo y un contador derivado. Con eventos sueltos de inicio y fin habria que emparejarlos despues, y ahi se rompe. Y como el estado se DERIVA (ahora >= iniciadoEl + duracion), no hace falta ningun temporizador: sobrevive a cerrar la pestaña y a reiniciar el servidor |
 | **C23** | **El almacen es generico: Almacen<T> con un conversor por tipo** | 2026-10-17 | Lo dificil de persistir no es guardar tareas: es escribir sin romper el archivo y sobrevivir al renombre que Windows rechaza. Eso es igual para todo, asi que esa parte vive en un solo lugar y solo cambia la conversion |
 
+| **C24** | **La app publica para los agentes en `DeepS\rendimiento\datos\`: el `tablero.md` y un `tareas.json` con esquema estable y `schema_version`** | 2026-10-18 | Pedido de `rendimiento`: necesitaba materia prima legible para analisis. El markdown es para leer, el JSON para analizar. Los dos son PROYECCIONES: se regeneran enteras en cada cambio y no se editan a mano. La ruta es configurable (`TAREAS_AGENTES`), porque la app no sabe donde vive el cuartel general |
+
+**Consecuencias de C24 — el exporte, y sus tres imprecisiones declaradas:**
+
+1. **Las fechas de tarea tienen precision de DIA**, no de segundo: se exportan a medianoche local (`2026-10-17T00:00:00-03:00`), porque la app guarda la fecha. Un `created_at` a las 00:00 no dice que se creo a esa hora.
+2. **Los `id` son estables y unicos pero no son uuid**: son `t-0007`.
+3. **`estimated_pomodoros` se deriva** de una estimacion en minutos, redondeando para arriba.
+4. **Las tres imprecisiones estan escritas EN EL ARCHIVO**, en el campo `notas`, para que quien lo lea no las descubra por sorpresa.
+5. **Los POMODOROS si tienen precision de segundo**, y su `duration_seconds` sale del mismo `finEfectivo` que el tablero: no pueden decir cosas distintas.
+6. **Se publica en cada cambio** (el servidor lo hace) y **bajo demanda** con `node src/exportar.ts`.
+
 **Consecuencias de C22 — el diseno del pomodoro:**
 
 1. **Tres estados, todos derivados**: `en-curso`, `cumplido` y `cortado`. Ninguno se guarda.

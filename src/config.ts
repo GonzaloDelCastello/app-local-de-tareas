@@ -29,10 +29,25 @@ export const ARCHIVO_TAREAS = join(DIRECTORIO_DATOS, "tareas.json");
 export const ARCHIVO_POMODOROS = join(DIRECTORIO_DATOS, "pomodoros.json");
 
 /**
+ * Donde se publica lo que leen los agentes (C24).
+ *
+ * Es una COPIA legible de los datos, dentro de un workspace que `rendimiento`
+ * puede leer. La app NO lee de aca: escribe. Si se borra, se regenera sola.
+ *
+ * Se puede pisar:
+ *   $env:TAREAS_AGENTES="D:\otro\lado"; node src/exportar.ts
+ */
+export const DIRECTORIO_AGENTES =
+  process.env.TAREAS_AGENTES ?? "C:\\Users\\gonza\\DeepS\\rendimiento\\datos";
+
+/**
  * La vista derivada que leen los presets `gabinete` y `rendimiento` (C6).
  * Es de SOLO LECTURA para ellos: la fuente de verdad son los datos.
  */
-export const ARCHIVO_TABLERO = join(DIRECTORIO_DATOS, "tablero.md");
+export const ARCHIVO_TABLERO = join(DIRECTORIO_AGENTES, "tablero.md");
+
+/** El JSON con el esquema que pide `rendimiento` para analizar. */
+export const ARCHIVO_EXPORTE = join(DIRECTORIO_AGENTES, "tareas.json");
 
 /** Puerto del servidor. Se puede pisar con $env:PORT. */
 export const PUERTO = Number(process.env.PORT ?? 3000);

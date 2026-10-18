@@ -17,9 +17,10 @@ import { extname, join, resolve, sep } from "node:path";
 import { crearAlmacenDePomodoros, crearAlmacenDeTareas, publicarTablero } from "./almacen.ts";
 import { manejarApi } from "./api.ts";
 import { manejarApiPomodoros } from "./api-pomodoros.ts";
+import { publicarExporte } from "./exporte.ts";
 // La configuracion sale de config.ts y no esta repetida aca: un solo lugar
 // donde mirar cuando algo cambia de valor (decision C11).
-import { ARCHIVO_POMODOROS, ARCHIVO_TABLERO, ARCHIVO_TAREAS, DIRECCION, PUERTO, RAIZ_PROYECTO, hoy } from "./config.ts";
+import { ARCHIVO_EXPORTE, ARCHIVO_POMODOROS, ARCHIVO_TABLERO, ARCHIVO_TAREAS, DIRECCION, PUERTO, RAIZ_PROYECTO, hoy } from "./config.ts";
 
 const RAIZ_PUBLICA = join(RAIZ_PROYECTO, "publico");
 
@@ -180,12 +181,17 @@ async function servirEstatico(res: ServerResponse, rutaPedida: string): Promise<
  * guardado y el tablero es una vista que se puede regenerar. Se avisa por
  * consola y se sigue.
  */
-async function republicarTablero(): Promise<void> {
+async function publicarParaAgentes(): Promise<void> {
+  const ahora = new Date();
   try {
-    await publicarTablero(almacen, almacenPomodoros, ARCHIVO_TABLERO, new Date());
+    // Los dos formatos del mismo estado: el markdown para leer, el JSON para
+    // analizar. Se regeneran juntos para que no puedan decir cosas distintas.
+    await publicarTablero(almacen, almacenPomodoros, ARCHIVO_TABLERO, ahora);
+    await publicarExporte(almacen, almacenPomodoros, ARCHIVO_EXPORTE, ahora);
   } catch (falla) {
+    // El dato YA esta guardado: publicar es una copia que se puede rehacer.
     const motivo = falla instanceof Error ? falla.message : String(falla);
-    console.error(`No se pudo regenerar ${ARCHIVO_TABLERO}: ${motivo}`);
+    console.error(`No se pudo publicar para los agentes: ${motivo}`);
   }
 }
 
@@ -224,7 +230,7 @@ const servidor = createServer(async (req: IncomingMessage, res: ServerResponse) 
     const respuesta = deTareas ?? dePomodoros;
 
     if (respuesta !== null) {
-      if (respuesta.cambio === true) await republicarTablero();
+      if (respuesta.cambio === true) await publicarParaAgentes();
       return responderJson(res, respuesta.codigo, respuesta.cuerpo, respuesta.encabezados ?? {});
     }
   } catch (falla) {
